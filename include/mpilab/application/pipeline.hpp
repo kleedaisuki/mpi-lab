@@ -97,6 +97,11 @@ namespace mpilab::application
         std::filesystem::path output_path;
 
         /**
+         * @brief 可选 JSONL 指标输出文件路径。 / Optional JSONL metric output file path.
+         */
+        std::optional<std::filesystem::path> metrics_path;
+
+        /**
          * @brief 输入矩阵布局。 / Input matrix layout.
          */
         MatrixLayout layout{MatrixLayout::row_major};
@@ -143,6 +148,11 @@ namespace mpilab::application
         std::size_t results_written{0};
 
         /**
+         * @brief 已写出 JSONL 指标记录数量。 / Number of JSONL metric records written.
+         */
+        std::size_t metrics_written{0};
+
+        /**
          * @brief 配置是否启用 MPI。 / Whether configuration enabled MPI.
          */
         bool mpi_enabled{false};
@@ -165,7 +175,7 @@ namespace mpilab::application
      * @return 流水线执行报告。 / Pipeline execution report.
      * @throws std::runtime_error 当 MPI 初始化或同步失败。 / Throws when MPI initialization or synchronization fails.
      * @throws infrastructure::MatrixFileFormatError 当矩阵文本格式非法。 / Throws when matrix text format is invalid.
-     * @note 每个输入样本写出三块矩阵：U、单行 Sigma、V。 / Each input sample writes three matrices: U, one-row Sigma, and V.
+     * @note 每个输入样本写出三块矩阵：U、单行 Sigma、V；若设置 metrics_path，则每个样本额外写出一行 JSONL 指标。 / Each input sample writes three matrices: U, one-row Sigma, and V; when metrics_path is set, each sample also writes one JSONL metric record.
      */
     [[nodiscard]] auto run_pipeline(const PipelineConfig &config) -> PipelineReport;
 

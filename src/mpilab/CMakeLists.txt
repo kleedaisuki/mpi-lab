@@ -19,6 +19,7 @@ set(MPILAB_PUBLIC_HEADERS
     "${PROJECT_SOURCE_DIR}/include/mpilab/infrastructure/logger.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/infrastructure/mpi_runtime.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/infrastructure/numerical_accuracy.hpp"
+    "${PROJECT_SOURCE_DIR}/include/mpilab/infrastructure/svd_convergence.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/infrastructure/thread_pool.hpp"
 )
 

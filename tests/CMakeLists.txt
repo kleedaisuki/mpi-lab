@@ -63,6 +63,19 @@ mpilab_apply_common_target_options(mpilab_infrastructure_numerical_accuracy_test
 
 add_test(NAME mpilab.infrastructure.numerical_accuracy COMMAND mpilab_infrastructure_numerical_accuracy_test)
 
+add_executable(mpilab_infrastructure_svd_convergence_test
+    infrastructure/svd_convergence.cpp
+)
+
+target_link_libraries(mpilab_infrastructure_svd_convergence_test
+    PRIVATE
+        mpi_svd_lab::mpilab
+)
+
+mpilab_apply_common_target_options(mpilab_infrastructure_svd_convergence_test)
+
+add_test(NAME mpilab.infrastructure.svd_convergence COMMAND mpilab_infrastructure_svd_convergence_test)
+
 add_executable(mpilab_application_pipeline_test
     application_pipeline.cpp
 )
