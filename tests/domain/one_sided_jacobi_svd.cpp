@@ -1,5 +1,7 @@
 #include "mpilab/domain/kernel.hpp"
 #include "mpilab/domain/matrix.hpp"
+#include "mpilab/infrastructure/numerical_accuracy.hpp"
+#include "mpilab/infrastructure/svd_convergence.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -30,92 +32,58 @@ namespace
     }
 
     /**
-     * @brief 计算 SVD 重构矩阵的一个元素。 Compute one element of the matrix reconstructed from the SVD.
+     * @brief 从 SVD 结果重构矩阵。 Reconstruct a matrix from an SVD result.
      *
      * @param result SVD 结果。 / SVD result.
-     * @param x 列索引。 / Column index.
-     * @param y 行索引。 / Row index.
-     * @return 重构元素值。 / Reconstructed element value.
+     * @param width 原矩阵宽度。 / Original matrix width.
+     * @param height 原矩阵高度。 / Original matrix height.
+     * @return 重构矩阵。 / Reconstructed matrix.
      */
-    [[nodiscard]] auto reconstructed_value(const mpilab::domain::OneSidedJacobiSvdResult &result, std::size_t x, std::size_t y) -> double
+    [[nodiscard]] auto reconstruct_matrix(const mpilab::domain::OneSidedJacobiSvdResult &result, std::size_t width, std::size_t height) -> mpilab::domain::RowMajorMatrix<double>
     {
-        double sum = 0.0;
-        for (std::size_t column = 0; column < result.singular_values.size(); ++column)
+        mpilab::domain::RowMajorMatrix<double> reconstructed(width, height);
+        for (std::size_t y = 0; y < height; ++y)
         {
-            sum += result.u(column, y) * result.singular_values[column] * result.v(column, x);
+            for (std::size_t x = 0; x < width; ++x)
+            {
+                double sum = 0.0;
+                for (std::size_t column = 0; column < result.singular_values.size(); ++column)
+                {
+                    sum += result.u(column, y) * result.singular_values[column] * result.v(column, x);
+                }
+                reconstructed.set(x, y, sum);
+            }
         }
-        return sum;
+
+        return reconstructed;
     }
 
     /**
-     * @brief 断言 SVD 能重构原矩阵。 Assert that the SVD reconstructs the original matrix.
+     * @brief 用论文指标断言 SVD 结果有效。 Assert an SVD result with paper-style metrics.
      *
      * @param matrix 原矩阵。 / Original matrix.
      * @param result SVD 结果。 / SVD result.
+     * @param options SVD 迭代选项。 / SVD iteration options.
      */
-    void assert_reconstructs(const mpilab::domain::RowMajorMatrix<double> &matrix, const mpilab::domain::OneSidedJacobiSvdResult &result)
+    void assert_svd_metrics(
+        const mpilab::domain::RowMajorMatrix<double> &matrix,
+        const mpilab::domain::OneSidedJacobiSvdResult &result,
+        const mpilab::domain::OneSidedJacobiSvdOptions &options = {})
     {
-        for (std::size_t y = 0; y < matrix.height(); ++y)
-        {
-            for (std::size_t x = 0; x < matrix.width(); ++x)
-            {
-                assert(almost_equal(reconstructed_value(result, x, y), matrix(x, y), 10.0));
-            }
-        }
-    }
+        const mpilab::domain::RowMajorMatrix<double> reconstructed = reconstruct_matrix(result, matrix.width(), matrix.height());
+        const mpilab::infrastructure::NumericalAccuracyMetrics accuracy = mpilab::infrastructure::evaluate_numerical_accuracy(matrix, reconstructed);
+        const mpilab::infrastructure::SvdConvergenceMetrics convergence = mpilab::infrastructure::evaluate_svd_convergence(result, options);
 
-    /**
-     * @brief 断言右奇异向量正交。 Assert that right singular vectors are orthogonal.
-     *
-     * @param result SVD 结果。 / SVD result.
-     */
-    void assert_right_vectors_are_orthogonal(const mpilab::domain::OneSidedJacobiSvdResult &result)
-    {
-        for (std::size_t left = 0; left < result.v.width(); ++left)
-        {
-            for (std::size_t right = 0; right < result.v.width(); ++right)
-            {
-                double dot = 0.0;
-                for (std::size_t row = 0; row < result.v.height(); ++row)
-                {
-                    dot += result.v(left, row) * result.v(right, row);
-                }
-
-                assert(almost_equal(dot, left == right ? 1.0 : 0.0, 10.0));
-            }
-        }
-    }
-
-    /**
-     * @brief 断言非零左奇异向量正交。 Assert that nonzero left singular vectors are orthogonal.
-     *
-     * @param result SVD 结果。 / SVD result.
-     */
-    void assert_nonzero_left_vectors_are_orthogonal(const mpilab::domain::OneSidedJacobiSvdResult &result)
-    {
-        for (std::size_t left = 0; left < result.u.width(); ++left)
-        {
-            if (result.singular_values[left] <= tolerance)
-            {
-                continue;
-            }
-
-            for (std::size_t right = 0; right < result.u.width(); ++right)
-            {
-                if (result.singular_values[right] <= tolerance)
-                {
-                    continue;
-                }
-
-                double dot = 0.0;
-                for (std::size_t row = 0; row < result.u.height(); ++row)
-                {
-                    dot += result.u(left, row) * result.u(right, row);
-                }
-
-                assert(almost_equal(dot, left == right ? 1.0 : 0.0, 10.0));
-            }
-        }
+        assert(accuracy.element_count == matrix.width() * matrix.height());
+        assert(accuracy.nonfinite_pair_count == 0);
+        assert(accuracy.root_mean_squared_error <= tolerance * 10.0);
+        assert(accuracy.relative_l2_error <= tolerance * 10.0);
+        assert(accuracy.relative_linf_error <= tolerance * 10.0);
+        assert(convergence.reported_converged);
+        assert(convergence.converged);
+        assert(convergence.tolerance_violation_count == 0);
+        assert(convergence.max_column_correlation <= convergence.tolerance);
+        assert(convergence.right_offdiagonal_gram_frobenius_norm <= tolerance * 10.0);
     }
 
     /**
@@ -196,9 +164,7 @@ int main()
     assert(diagonal_result.singular_values.size() == 2);
     assert(almost_equal(diagonal_result.singular_values[0], 3.0));
     assert(almost_equal(diagonal_result.singular_values[1], 2.0));
-    assert_reconstructs(diagonal, diagonal_result);
-    assert_right_vectors_are_orthogonal(diagonal_result);
-    assert_nonzero_left_vectors_are_orthogonal(diagonal_result);
+    assert_svd_metrics(diagonal, diagonal_result);
 
     /**
      * @brief 非对角满列秩矩阵测试。 / Non-diagonal full-column-rank matrix test.
@@ -219,21 +185,11 @@ int main()
     assert_singular_values_are_sorted(mpi_friendly_full_rank_result);
     assert_singular_values_are_sorted(pthreads_full_rank_result);
     assert_singular_values_are_sorted(simd_full_rank_result);
-    assert_reconstructs(full_rank, full_rank_result);
-    assert_reconstructs(full_rank, advanced_full_rank_result);
-    assert_reconstructs(full_rank, mpi_friendly_full_rank_result);
-    assert_reconstructs(full_rank, pthreads_full_rank_result);
-    assert_reconstructs(full_rank, simd_full_rank_result);
-    assert_right_vectors_are_orthogonal(full_rank_result);
-    assert_right_vectors_are_orthogonal(advanced_full_rank_result);
-    assert_right_vectors_are_orthogonal(mpi_friendly_full_rank_result);
-    assert_right_vectors_are_orthogonal(pthreads_full_rank_result);
-    assert_right_vectors_are_orthogonal(simd_full_rank_result);
-    assert_nonzero_left_vectors_are_orthogonal(full_rank_result);
-    assert_nonzero_left_vectors_are_orthogonal(advanced_full_rank_result);
-    assert_nonzero_left_vectors_are_orthogonal(mpi_friendly_full_rank_result);
-    assert_nonzero_left_vectors_are_orthogonal(pthreads_full_rank_result);
-    assert_nonzero_left_vectors_are_orthogonal(simd_full_rank_result);
+    assert_svd_metrics(full_rank, full_rank_result);
+    assert_svd_metrics(full_rank, advanced_full_rank_result);
+    assert_svd_metrics(full_rank, mpi_friendly_full_rank_result);
+    assert_svd_metrics(full_rank, pthreads_full_rank_result);
+    assert_svd_metrics(full_rank, simd_full_rank_result);
 
     /**
      * @brief 多列矩阵测试，确保 Pthreads phase 并行路径被覆盖。 / Multi-column matrix test covering the Pthreads phase-parallel path.
@@ -253,12 +209,8 @@ int main()
     assert(simd_multi_result.converged);
     assert_singular_values_are_sorted(pthreads_multi_result);
     assert_singular_values_are_sorted(simd_multi_result);
-    assert_reconstructs(multi_column, pthreads_multi_result);
-    assert_reconstructs(multi_column, simd_multi_result);
-    assert_right_vectors_are_orthogonal(pthreads_multi_result);
-    assert_right_vectors_are_orthogonal(simd_multi_result);
-    assert_nonzero_left_vectors_are_orthogonal(pthreads_multi_result);
-    assert_nonzero_left_vectors_are_orthogonal(simd_multi_result);
+    assert_svd_metrics(multi_column, pthreads_multi_result);
+    assert_svd_metrics(multi_column, simd_multi_result);
 
     /**
      * @brief 秩亏矩阵测试。 / Rank-deficient matrix test.
@@ -274,8 +226,7 @@ int main()
     const auto rank_deficient_result = svd(rank_deficient);
     assert(rank_deficient_result.converged);
     assert(rank_deficient_result.singular_values[1] <= tolerance);
-    assert_reconstructs(rank_deficient, rank_deficient_result);
-    assert_right_vectors_are_orthogonal(rank_deficient_result);
+    assert_svd_metrics(rank_deficient, rank_deficient_result);
 
     /**
      * @brief Round-robin phase 调度不变量测试。 / Round-robin phase scheduling invariant test.
