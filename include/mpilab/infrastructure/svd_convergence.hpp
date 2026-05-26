@@ -136,8 +136,9 @@ namespace mpilab::infrastructure
      * @return SVD 收敛性指标。 / SVD convergence metrics.
      * @note 对单边 Jacobi SVD，非零 U 列之间的归一化相关性反映最终列正交化残差。 / For one-sided Jacobi SVD, normalized correlations between nonzero U columns reflect the final column-orthogonalization residual.
      */
+    template <domain::MatrixLike Matrix>
     [[nodiscard]] inline auto evaluate_svd_convergence(
-        const domain::OneSidedJacobiSvdResult &result,
+        const domain::OneSidedJacobiSvdResult<Matrix> &result,
         SvdConvergenceOptions options = {}) -> SvdConvergenceMetrics
     {
         const double tolerance = std::max(options.tolerance, std::numeric_limits<double>::epsilon());
@@ -213,8 +214,9 @@ namespace mpilab::infrastructure
      * @param options SVD 迭代配置。 / SVD iteration options.
      * @return SVD 收敛性指标。 / SVD convergence metrics.
      */
+    template <domain::MatrixLike Matrix>
     [[nodiscard]] inline auto evaluate_svd_convergence(
-        const domain::OneSidedJacobiSvdResult &result,
+        const domain::OneSidedJacobiSvdResult<Matrix> &result,
         const domain::OneSidedJacobiSvdOptions &options) -> SvdConvergenceMetrics
     {
         return evaluate_svd_convergence(result, SvdConvergenceOptions{.tolerance = options.tolerance, .max_sweeps = options.max_sweeps});

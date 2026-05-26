@@ -18,14 +18,23 @@ namespace mpilab::domain
     struct PthreadsOneSidedJacobiSvd
     {
         /**
-         * @brief 对行主序矩阵计算 thin SVD。 Compute the thin SVD of a row-major matrix.
+         * @brief 对任意 MatrixLike 矩阵计算 thin SVD。 Compute the thin SVD of any MatrixLike matrix.
          *
+         * @tparam Matrix 输入矩阵类型。 / Input matrix type.
          * @param matrix 输入矩阵 A，尺寸为 m-by-n。 / Input matrix A with size m-by-n.
          * @param options 迭代配置。 / Iteration options.
          * @return SVD 结果。 / SVD result.
          * @note 当前 Pthreads 版本要求 m >= n。 / The current Pthreads version requires m >= n.
          */
-        [[nodiscard]] auto operator()(const RowMajorMatrix<double>& matrix, const OneSidedJacobiSvdOptions& options = {}) const -> OneSidedJacobiSvdResult;
+        template <MatrixLike Matrix>
+        [[nodiscard]] auto operator()(const Matrix& matrix, const OneSidedJacobiSvdOptions& options = {}) const -> OneSidedJacobiSvdResult<std::remove_cvref_t<Matrix>>
+        {
+            return detail::run_one_sided_jacobi_svd(
+                matrix,
+                options,
+                detail::JacobiSweepStrategy::round_robin_phases,
+                detail::JacobiExecutionStrategy::pthreads);
+        }
     };
 
 } // namespace mpilab::domain

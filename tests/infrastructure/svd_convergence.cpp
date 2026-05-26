@@ -51,7 +51,7 @@ namespace
      */
     void test_detects_orthogonality_violation()
     {
-        mpilab::domain::OneSidedJacobiSvdResult result{
+        mpilab::domain::OneSidedJacobiSvdResult<mpilab::domain::RowMajorMatrix<double>> result{
             .u = mpilab::domain::RowMajorMatrix<double>(2, 2),
             .singular_values = {2.0, 1.0},
             .v = mpilab::domain::RowMajorMatrix<double>(2, 2),
@@ -83,7 +83,7 @@ namespace
      */
     void test_skips_zero_singular_columns()
     {
-        mpilab::domain::OneSidedJacobiSvdResult result{
+        mpilab::domain::OneSidedJacobiSvdResult<mpilab::domain::RowMajorMatrix<double>> result{
             .u = mpilab::domain::RowMajorMatrix<double>(2, 2),
             .singular_values = {2.0, 0.0},
             .v = mpilab::domain::RowMajorMatrix<double>(2, 2),

@@ -28,69 +28,6 @@ namespace mpilab::application
     namespace
     {
         /**
-         * @brief 将任意矩阵布局复制为行主序矩阵。 Copy any matrix layout into a row-major matrix.
-         *
-         * @tparam Matrix 源矩阵类型。 / Source matrix type.
-         * @param matrix 源矩阵。 / Source matrix.
-         * @return 行主序矩阵副本。 / Row-major matrix copy.
-         */
-        template <domain::MatrixLike Matrix>
-        [[nodiscard]] auto to_row_major(const Matrix &matrix) -> domain::RowMajorMatrix<double>
-        {
-            domain::RowMajorMatrix<double> row_major(matrix.width(), matrix.height());
-            for (std::size_t y = 0; y < matrix.height(); ++y)
-            {
-                for (std::size_t x = 0; x < matrix.width(); ++x)
-                {
-                    row_major.set(x, y, static_cast<double>(matrix(x, y)));
-                }
-            }
-
-            return row_major;
-        }
-
-        /**
-         * @brief 读取下一块矩阵并正规化为行主序矩阵。 Read the next matrix and normalize it to row-major layout.
-         *
-         * @tparam Matrix 输入布局矩阵类型。 / Input layout matrix type.
-         * @param reader 矩阵文件读取器。 / Matrix file reader.
-         * @return 行主序矩阵。 / Row-major matrix.
-         */
-        template <domain::MatrixLike Matrix>
-        [[nodiscard]] auto read_row_major(infrastructure::MatrixFileReader &reader) -> domain::RowMajorMatrix<double>
-        {
-            return to_row_major(reader.next<Matrix>());
-        }
-
-        /**
-         * @brief 按配置读取下一块样本矩阵。 Read the next sample matrix according to configuration.
-         *
-         * @param reader 矩阵文件读取器。 / Matrix file reader.
-         * @param layout 输入布局选择。 / Input layout selection.
-         * @return 行主序样本矩阵。 / Row-major sample matrix.
-         */
-        [[nodiscard]] auto read_sample(infrastructure::MatrixFileReader &reader, MatrixLayout layout) -> domain::RowMajorMatrix<double>
-        {
-            switch (layout)
-            {
-            case MatrixLayout::row_major:
-                return read_row_major<domain::RowMajorMatrix<double>>(reader);
-            case MatrixLayout::column_major:
-                return read_row_major<domain::ColumnMajorMatrix<double>>(reader);
-            case MatrixLayout::strided_row_major:
-                return read_row_major<domain::StridedRowMajorMatrix<double>>(reader);
-            case MatrixLayout::jagged_row_major:
-                return read_row_major<domain::JaggedRowMajorMatrix<double>>(reader);
-            case MatrixLayout::blocked_row_major:
-                return read_row_major<domain::BlockedRowMajorMatrix<double>>(reader);
-            case MatrixLayout::morton:
-                return read_row_major<domain::MortonMatrix<double>>(reader);
-            }
-
-            return read_row_major<domain::RowMajorMatrix<double>>(reader);
-        }
-
-        /**
          * @brief 按配置执行 SVD 算子。 Execute an SVD kernel according to configuration.
          *
          * @param matrix 输入矩阵。 / Input matrix.
@@ -98,10 +35,20 @@ namespace mpilab::application
          * @param options SVD 迭代选项。 / SVD iteration options.
          * @return SVD 结果。 / SVD result.
          */
+        /**
+         * @brief 按配置执行 SVD 算子。 Execute an SVD kernel according to configuration.
+         *
+         * @tparam Matrix 输入矩阵类型。 / Input matrix type.
+         * @param matrix 输入矩阵。 / Input matrix.
+         * @param kernel 算子选择。 / Kernel selection.
+         * @param options SVD 迭代选项。 / SVD iteration options.
+         * @return SVD 结果。 / SVD result.
+         */
+        template <domain::MatrixLike Matrix>
         [[nodiscard]] auto compute_svd(
-            const domain::RowMajorMatrix<double> &matrix,
+            const Matrix &matrix,
             SvdKernel kernel,
-            const domain::OneSidedJacobiSvdOptions &options) -> domain::OneSidedJacobiSvdResult
+            const domain::OneSidedJacobiSvdOptions &options)
         {
             switch (kernel)
             {
@@ -126,9 +73,10 @@ namespace mpilab::application
          * @param singular_values 奇异值向量。 / Singular value vector.
          * @return 单行奇异值矩阵。 / One-row singular-value matrix.
          */
-        [[nodiscard]] auto singular_values_to_matrix(const std::vector<double> &singular_values) -> domain::RowMajorMatrix<double>
+        template <domain::MatrixLike Matrix>
+        [[nodiscard]] auto singular_values_to_matrix(const std::vector<double> &singular_values) -> Matrix
         {
-            domain::RowMajorMatrix<double> matrix(singular_values.size(), 1);
+            Matrix matrix(singular_values.size(), 1);
             for (std::size_t index = 0; index < singular_values.size(); ++index)
             {
                 matrix.set(index, 0, singular_values[index]);
@@ -143,10 +91,11 @@ namespace mpilab::application
          * @param result SVD 结果。 / SVD result.
          * @param output 输出矩阵序列。 / Output matrix sequence.
          */
-        void append_result_matrices(const domain::OneSidedJacobiSvdResult &result, std::vector<domain::RowMajorMatrix<double>> &output)
+        template <domain::MatrixLike Matrix>
+        void append_result_matrices(const domain::OneSidedJacobiSvdResult<Matrix> &result, std::vector<Matrix> &output)
         {
             output.push_back(result.u);
-            output.push_back(singular_values_to_matrix(result.singular_values));
+            output.push_back(singular_values_to_matrix<Matrix>(result.singular_values));
             output.push_back(result.v);
         }
 
@@ -210,9 +159,10 @@ namespace mpilab::application
          * @param height 原矩阵高度。 / Original matrix height.
          * @return 重构矩阵。 / Reconstructed matrix.
          */
-        [[nodiscard]] auto reconstruct_matrix(const domain::OneSidedJacobiSvdResult &result, std::size_t width, std::size_t height) -> domain::RowMajorMatrix<double>
+        template <domain::MatrixLike Matrix>
+        [[nodiscard]] auto reconstruct_matrix(const domain::OneSidedJacobiSvdResult<Matrix> &result, std::size_t width, std::size_t height) -> Matrix
         {
-            domain::RowMajorMatrix<double> reconstructed(width, height);
+            Matrix reconstructed(width, height);
             for (std::size_t y = 0; y < height; ++y)
             {
                 for (std::size_t x = 0; x < width; ++x)
@@ -378,18 +328,20 @@ namespace mpilab::application
          * @brief 创建单个样本的 JSONL 指标记录。 Create one JSONL metric record for a sample.
          *
          * @param sample_index 样本索引。 / Sample index.
+         * @tparam Matrix 输入样本矩阵类型。 / Input sample matrix type.
          * @param sample 输入样本。 / Input sample.
          * @param config 流水线配置。 / Pipeline configuration.
          * @param result SVD 结果。 / SVD result.
          * @return JSONL 记录文本。 / JSONL record text.
          */
+        template <domain::MatrixLike Matrix>
         [[nodiscard]] auto make_metric_record(
             std::size_t sample_index,
-            const domain::RowMajorMatrix<double> &sample,
+            const Matrix &sample,
             const PipelineConfig &config,
-            const domain::OneSidedJacobiSvdResult &result) -> std::string
+            const domain::OneSidedJacobiSvdResult<Matrix> &result) -> std::string
         {
-            const domain::RowMajorMatrix<double> reconstructed = reconstruct_matrix(result, sample.width(), sample.height());
+            const Matrix reconstructed = reconstruct_matrix(result, sample.width(), sample.height());
             const infrastructure::NumericalAccuracyMetrics accuracy = infrastructure::evaluate_numerical_accuracy(sample, reconstructed);
             const infrastructure::SvdConvergenceMetrics convergence = infrastructure::evaluate_svd_convergence(result, config.svd_options);
 
@@ -405,6 +357,80 @@ namespace mpilab::application
             output << '}';
             return output.str();
         }
+
+        /**
+         * @brief 读取并处理一个指定布局类型的样本。 Read and process one sample with a specific layout type.
+         *
+         * @tparam Matrix 输入样本矩阵类型。 / Input sample matrix type.
+         * @param reader 矩阵文件读取器。 / Matrix file reader.
+         * @param config 流水线配置。 / Pipeline configuration.
+         * @param metrics_logger JSONL 指标 logger。 / JSONL metrics logger.
+         * @param metrics_enabled 是否启用指标输出。 / Whether metric output is enabled.
+         * @param report 流水线报告。 / Pipeline report.
+         * @param output 输出矩阵序列。 / Output matrix sequence.
+         */
+        template <domain::MatrixLike Matrix>
+        void process_next_sample(
+            infrastructure::MatrixFileReader &reader,
+            const PipelineConfig &config,
+            const infrastructure::Logger &metrics_logger,
+            bool metrics_enabled,
+            PipelineReport &report,
+            std::vector<Matrix> &output)
+        {
+            const Matrix sample = reader.next<Matrix>();
+            const auto result = compute_svd(sample, config.kernel, config.svd_options);
+            const std::size_t sample_index = report.samples_read;
+            ++report.samples_read;
+
+            append_result_matrices(result, output);
+            ++report.results_written;
+            if (metrics_enabled)
+            {
+                metrics_logger.log(infrastructure::LogLevel::jsonl, make_metric_record(sample_index, sample, config, result));
+                ++report.metrics_written;
+            }
+        }
+
+        /**
+         * @brief 按指定布局类型运行完整流水线。 Run the full pipeline with a specific layout type.
+         *
+         * @tparam Matrix 输入和输出矩阵类型。 / Input and output matrix type.
+         * @param reader 矩阵文件读取器。 / Matrix file reader.
+         * @param config 流水线配置。 / Pipeline configuration.
+         * @param mpi MPI 执行作用域。 / MPI execution scope.
+         * @param metrics_logger JSONL 指标 logger。 / JSONL metrics logger.
+         * @param metrics_enabled 是否启用指标输出。 / Whether metric output is enabled.
+         * @param report 流水线报告。 / Pipeline report.
+         */
+        template <domain::MatrixLike Matrix>
+        void run_typed_pipeline(
+            infrastructure::MatrixFileReader &reader,
+            const PipelineConfig &config,
+            const MpiExecutionScope &mpi,
+            const infrastructure::Logger &metrics_logger,
+            bool metrics_enabled,
+            PipelineReport &report)
+        {
+            std::vector<Matrix> output;
+            while (reader.has_next())
+            {
+                if (mpi.writes_output())
+                {
+                    process_next_sample<Matrix>(reader, config, metrics_logger, metrics_enabled, report, output);
+                }
+                else
+                {
+                    static_cast<void>(reader.next<Matrix>());
+                    ++report.samples_read;
+                }
+            }
+
+            if (mpi.writes_output())
+            {
+                infrastructure::write_matrices(config.output_path, output);
+            }
+        }
     } // namespace
 
     auto run_pipeline(const PipelineConfig &config) -> PipelineReport
@@ -416,7 +442,6 @@ namespace mpilab::application
         report.rank = mpi.rank();
         report.size = mpi.size();
 
-        std::vector<domain::RowMajorMatrix<double>> output;
         infrastructure::Logger metrics_logger("application.pipeline.metrics", infrastructure::LogLevel::jsonl, false);
         bool metrics_enabled = false;
         if (mpi.writes_output() && config.metrics_path.has_value())
@@ -426,34 +451,32 @@ namespace mpilab::application
         }
 
         infrastructure::MatrixFileReader reader(config.input_path);
-        while (reader.has_next())
+        switch (config.layout)
         {
-            const domain::RowMajorMatrix<double> sample = read_sample(reader, config.layout);
-            const domain::OneSidedJacobiSvdResult result = compute_svd(sample, config.kernel, config.svd_options);
-            const std::size_t sample_index = report.samples_read;
-            ++report.samples_read;
-
-            if (mpi.writes_output())
-            {
-                append_result_matrices(result, output);
-                ++report.results_written;
-                if (metrics_enabled)
-                {
-                    metrics_logger.log(infrastructure::LogLevel::jsonl, make_metric_record(sample_index, sample, config, result));
-                    ++report.metrics_written;
-                }
-            }
+        case MatrixLayout::row_major:
+            run_typed_pipeline<domain::RowMajorMatrix<double>>(reader, config, mpi, metrics_logger, metrics_enabled, report);
+            break;
+        case MatrixLayout::column_major:
+            run_typed_pipeline<domain::ColumnMajorMatrix<double>>(reader, config, mpi, metrics_logger, metrics_enabled, report);
+            break;
+        case MatrixLayout::strided_row_major:
+            run_typed_pipeline<domain::StridedRowMajorMatrix<double>>(reader, config, mpi, metrics_logger, metrics_enabled, report);
+            break;
+        case MatrixLayout::jagged_row_major:
+            run_typed_pipeline<domain::JaggedRowMajorMatrix<double>>(reader, config, mpi, metrics_logger, metrics_enabled, report);
+            break;
+        case MatrixLayout::blocked_row_major:
+            run_typed_pipeline<domain::BlockedRowMajorMatrix<double>>(reader, config, mpi, metrics_logger, metrics_enabled, report);
+            break;
+        case MatrixLayout::morton:
+            run_typed_pipeline<domain::MortonMatrix<double>>(reader, config, mpi, metrics_logger, metrics_enabled, report);
+            break;
         }
 
         if (metrics_enabled)
         {
             infrastructure::flush_logs();
             infrastructure::reset_log_output(infrastructure::LogLevel::jsonl);
-        }
-
-        if (mpi.writes_output())
-        {
-            infrastructure::write_matrices(config.output_path, output);
         }
 
         mpi.barrier();

@@ -39,9 +39,10 @@ namespace
      * @param height 原矩阵高度。 / Original matrix height.
      * @return 重构矩阵。 / Reconstructed matrix.
      */
-    [[nodiscard]] auto reconstruct_matrix(const mpilab::domain::OneSidedJacobiSvdResult &result, std::size_t width, std::size_t height) -> mpilab::domain::RowMajorMatrix<double>
+    template <mpilab::domain::MatrixLike Matrix>
+    [[nodiscard]] auto reconstruct_matrix(const mpilab::domain::OneSidedJacobiSvdResult<Matrix> &result, std::size_t width, std::size_t height) -> Matrix
     {
-        mpilab::domain::RowMajorMatrix<double> reconstructed(width, height);
+        Matrix reconstructed(width, height);
         for (std::size_t y = 0; y < height; ++y)
         {
             for (std::size_t x = 0; x < width; ++x)
@@ -65,12 +66,13 @@ namespace
      * @param result SVD 结果。 / SVD result.
      * @param options SVD 迭代选项。 / SVD iteration options.
      */
+    template <mpilab::domain::MatrixLike Matrix>
     void assert_svd_metrics(
-        const mpilab::domain::RowMajorMatrix<double> &matrix,
-        const mpilab::domain::OneSidedJacobiSvdResult &result,
+        const Matrix &matrix,
+        const mpilab::domain::OneSidedJacobiSvdResult<Matrix> &result,
         const mpilab::domain::OneSidedJacobiSvdOptions &options = {})
     {
-        const mpilab::domain::RowMajorMatrix<double> reconstructed = reconstruct_matrix(result, matrix.width(), matrix.height());
+        const Matrix reconstructed = reconstruct_matrix(result, matrix.width(), matrix.height());
         const mpilab::infrastructure::NumericalAccuracyMetrics accuracy = mpilab::infrastructure::evaluate_numerical_accuracy(matrix, reconstructed);
         const mpilab::infrastructure::SvdConvergenceMetrics convergence = mpilab::infrastructure::evaluate_svd_convergence(result, options);
 
@@ -91,7 +93,8 @@ namespace
      *
      * @param result SVD 结果。 / SVD result.
      */
-    void assert_singular_values_are_sorted(const mpilab::domain::OneSidedJacobiSvdResult &result)
+    template <mpilab::domain::MatrixLike Matrix>
+    void assert_singular_values_are_sorted(const mpilab::domain::OneSidedJacobiSvdResult<Matrix> &result)
     {
         for (std::size_t index = 1; index < result.singular_values.size(); ++index)
         {
@@ -211,6 +214,23 @@ int main()
     assert_singular_values_are_sorted(simd_multi_result);
     assert_svd_metrics(multi_column, pthreads_multi_result);
     assert_svd_metrics(multi_column, simd_multi_result);
+
+    /**
+     * @brief 非行主序结果类型测试。 / Non-row-major result type test.
+     */
+    mpilab::domain::ColumnMajorMatrix<double> column_major(2, 3);
+    for (std::size_t y = 0; y < full_rank.height(); ++y)
+    {
+        for (std::size_t x = 0; x < full_rank.width(); ++x)
+        {
+            column_major.set(x, y, full_rank(x, y));
+        }
+    }
+    const auto column_major_result = advanced_svd(column_major);
+    static_assert(std::is_same_v<std::remove_cvref_t<decltype(column_major_result.u)>, mpilab::domain::ColumnMajorMatrix<double>>);
+    static_assert(std::is_same_v<std::remove_cvref_t<decltype(column_major_result.v)>, mpilab::domain::ColumnMajorMatrix<double>>);
+    assert(column_major_result.converged);
+    assert_svd_metrics(column_major, column_major_result);
 
     /**
      * @brief 秩亏矩阵测试。 / Rank-deficient matrix test.

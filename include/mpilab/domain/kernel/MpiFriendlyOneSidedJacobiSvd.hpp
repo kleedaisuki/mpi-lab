@@ -14,33 +14,6 @@ namespace mpilab::domain
 {
 
     /**
-     * @brief Jacobi 列对。 Jacobi column pair.
-     */
-    struct JacobiColumnPair
-    {
-        /**
-         * @brief 左列索引。 / Left column index.
-         */
-        std::size_t left{0};
-
-        /**
-         * @brief 右列索引。 / Right column index.
-         */
-        std::size_t right{0};
-    };
-
-    /**
-     * @brief Jacobi phase，内部列对两两不共享列。 Jacobi phase whose pairs do not share columns.
-     */
-    struct JacobiPairPhase
-    {
-        /**
-         * @brief 本 phase 中可并行处理的列对。 / Column pairs that can be processed concurrently in this phase.
-         */
-        std::vector<JacobiColumnPair> pairs;
-    };
-
-    /**
      * @brief Round-robin Jacobi 列对调度器。 Round-robin Jacobi column-pair scheduler.
      */
     struct RoundRobinJacobiPairScheduler
@@ -51,7 +24,10 @@ namespace mpilab::domain
          * @param column_count 列数。 / Column count.
          * @return phase 调度。 / Phase schedule.
          */
-        [[nodiscard]] auto operator()(std::size_t column_count) const -> std::vector<JacobiPairPhase>;
+        [[nodiscard]] auto operator()(std::size_t column_count) const -> std::vector<JacobiPairPhase>
+        {
+            return detail::build_round_robin_phases(column_count);
+        }
     };
 
     /**
@@ -62,14 +38,19 @@ namespace mpilab::domain
     struct MpiFriendlyOneSidedJacobiSvd
     {
         /**
-         * @brief 对行主序矩阵计算 thin SVD。 Compute the thin SVD of a row-major matrix.
+         * @brief 对任意 MatrixLike 矩阵计算 thin SVD。 Compute the thin SVD of any MatrixLike matrix.
          *
+         * @tparam Matrix 输入矩阵类型。 / Input matrix type.
          * @param matrix 输入矩阵 A，尺寸为 m-by-n。 / Input matrix A with size m-by-n.
          * @param options 迭代配置。 / Iteration options.
          * @return SVD 结果。 / SVD result.
          * @note 当前 MPI-friendly 版本要求 m >= n。 / The current MPI-friendly version requires m >= n.
          */
-        [[nodiscard]] auto operator()(const RowMajorMatrix<double>& matrix, const OneSidedJacobiSvdOptions& options = {}) const -> OneSidedJacobiSvdResult;
+        template <MatrixLike Matrix>
+        [[nodiscard]] auto operator()(const Matrix& matrix, const OneSidedJacobiSvdOptions& options = {}) const -> OneSidedJacobiSvdResult<std::remove_cvref_t<Matrix>>
+        {
+            return detail::run_one_sided_jacobi_svd(matrix, options, detail::JacobiSweepStrategy::round_robin_phases);
+        }
     };
 
 } // namespace mpilab::domain
