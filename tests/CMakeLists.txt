@@ -11,6 +11,19 @@ mpilab_apply_common_target_options(mpilab_smoke_test)
 
 add_test(NAME mpilab.smoke COMMAND mpilab_smoke_test)
 
+add_executable(mpilab_infrastructure_logger_test
+    infrastructure/logger.cpp
+)
+
+target_link_libraries(mpilab_infrastructure_logger_test
+    PRIVATE
+        mpi_svd_lab::mpilab
+)
+
+mpilab_apply_common_target_options(mpilab_infrastructure_logger_test)
+
+add_test(NAME mpilab.infrastructure.logger COMMAND mpilab_infrastructure_logger_test)
+
 add_executable(mpilab_domain_concepts_test
     domain/concepts.cpp
 )
