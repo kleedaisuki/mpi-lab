@@ -50,6 +50,19 @@ mpilab_apply_common_target_options(mpilab_infrastructure_mpi_runtime_test)
 
 add_test(NAME mpilab.infrastructure.mpi_runtime COMMAND mpilab_infrastructure_mpi_runtime_test)
 
+add_executable(mpilab_infrastructure_numerical_accuracy_test
+    infrastructure/numerical_accuracy.cpp
+)
+
+target_link_libraries(mpilab_infrastructure_numerical_accuracy_test
+    PRIVATE
+        mpi_svd_lab::mpilab
+)
+
+mpilab_apply_common_target_options(mpilab_infrastructure_numerical_accuracy_test)
+
+add_test(NAME mpilab.infrastructure.numerical_accuracy COMMAND mpilab_infrastructure_numerical_accuracy_test)
+
 add_executable(mpilab_application_pipeline_test
     application_pipeline.cpp
 )
