@@ -1,6 +1,8 @@
 #pragma once
 
+#include "mpilab/domain/KernelLike.hpp"
+
 /**
  * @file kernel.hpp
- * @brief 核函数领域模型占位声明。 Kernel domain model placeholder declarations.
+ * @brief 核函数领域模型声明。 Kernel domain model declarations.
  */
