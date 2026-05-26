@@ -15,8 +15,8 @@ namespace
         /**
          * @brief 构造测试矩阵映射。 Construct a test matrix mapping.
          *
-         * @param width 中文：逻辑横向范围。 English: Logical horizontal extent.
-         * @param height 中文：逻辑纵向范围。 English: Logical vertical extent.
+         * @param width 逻辑横向范围。 / Logical horizontal extent.
+         * @param height 逻辑纵向范围。 / Logical vertical extent.
          */
         CoordinateMatrix(std::size_t width, std::size_t height)
         {
@@ -27,9 +27,9 @@ namespace
         /**
          * @brief 按坐标读取矩阵值。 Read a matrix value by coordinate.
          *
-         * @param x 中文：横向坐标。 English: Horizontal coordinate.
-         * @param y 中文：纵向坐标。 English: Vertical coordinate.
-         * @return 中文：坐标对应的矩阵值。 English: Matrix value at the coordinate.
+         * @param x 横向坐标。 / Horizontal coordinate.
+         * @param y 纵向坐标。 / Vertical coordinate.
+         * @return 坐标对应的矩阵值。 / Matrix value at the coordinate.
          */
         [[nodiscard]] auto operator()(std::size_t x, std::size_t y) const -> double
         {
@@ -45,11 +45,11 @@ namespace
         /**
          * @brief 执行核函数。 Execute the kernel function.
          *
-         * @tparam Matrix 中文：矩阵映射类型。 English: Matrix mapping type.
-         * @param matrix 中文：矩阵映射。 English: Matrix mapping.
-         * @param x 中文：横向坐标。 English: Horizontal coordinate.
-         * @param y 中文：纵向坐标。 English: Vertical coordinate.
-         * @return 中文：核函数结果。 English: Kernel result.
+         * @tparam Matrix 矩阵映射类型。 / Matrix mapping type.
+         * @param matrix 矩阵映射。 / Matrix mapping.
+         * @param x 横向坐标。 / Horizontal coordinate.
+         * @param y 纵向坐标。 / Vertical coordinate.
+         * @return 核函数结果。 / Kernel result.
          */
         template <mpilab::domain::MatrixLike Matrix>
         [[nodiscard]] auto operator()(const Matrix &matrix, std::size_t x, std::size_t y) const -> double
@@ -66,8 +66,8 @@ namespace
         /**
          * @brief 构造测试坏矩阵。 Construct a test bad matrix.
          *
-         * @param width 中文：逻辑横向范围。 English: Logical horizontal extent.
-         * @param height 中文：逻辑纵向范围。 English: Logical vertical extent.
+         * @param width 逻辑横向范围。 / Logical horizontal extent.
+         * @param height 逻辑纵向范围。 / Logical vertical extent.
          */
         NonRealMatrix(std::size_t width, std::size_t height)
         {
@@ -78,9 +78,9 @@ namespace
         /**
          * @brief 按坐标返回非实数值。 Return a non-real value by coordinate.
          *
-         * @param x 中文：横向坐标。 English: Horizontal coordinate.
-         * @param y 中文：纵向坐标。 English: Vertical coordinate.
-         * @return 中文：非实数值。 English: Non-real value.
+         * @param x 横向坐标。 / Horizontal coordinate.
+         * @param y 纵向坐标。 / Vertical coordinate.
+         * @return 非实数值。 / Non-real value.
          */
         [[nodiscard]] auto operator()(std::size_t x, std::size_t y) const -> const char *
         {
@@ -96,17 +96,17 @@ namespace
     struct StatefulKernel
     {
         /**
-         * @brief 中文：核内部状态。 English: Kernel internal state.
+         * @brief 核内部状态。 / Kernel internal state.
          */
         int offset{0};
 
         /**
          * @brief 执行带状态核函数。 Execute a stateful kernel function.
          *
-         * @param matrix 中文：矩阵映射。 English: Matrix mapping.
-         * @param x 中文：横向坐标。 English: Horizontal coordinate.
-         * @param y 中文：纵向坐标。 English: Vertical coordinate.
-         * @return 中文：核函数结果。 English: Kernel result.
+         * @param matrix 矩阵映射。 / Matrix mapping.
+         * @param x 横向坐标。 / Horizontal coordinate.
+         * @param y 纵向坐标。 / Vertical coordinate.
+         * @return 核函数结果。 / Kernel result.
          */
         [[nodiscard]] auto operator()(const CoordinateMatrix &matrix, std::size_t x, std::size_t y) const -> double
         {
@@ -127,9 +127,9 @@ namespace
         /**
          * @brief 按坐标读取矩阵值。 Read a matrix value by coordinate.
          *
-         * @param x 中文：横向坐标。 English: Horizontal coordinate.
-         * @param y 中文：纵向坐标。 English: Vertical coordinate.
-         * @return 中文：坐标对应的矩阵值。 English: Matrix value at the coordinate.
+         * @param x 横向坐标。 / Horizontal coordinate.
+         * @param y 纵向坐标。 / Vertical coordinate.
+         * @return 坐标对应的矩阵值。 / Matrix value at the coordinate.
          */
         [[nodiscard]] auto operator()(std::size_t x, std::size_t y) const -> double
         {
@@ -140,21 +140,21 @@ namespace
     static_assert(mpilab::domain::MatrixLike<CoordinateMatrix>);
     static_assert(!mpilab::domain::MatrixLike<NonRealMatrix>);
     static_assert(!mpilab::domain::MatrixLike<NonUniformMatrix>);
-static_assert(mpilab::domain::MatrixLike<mpilab::domain::RowMajorMatrix<>>);
-static_assert(mpilab::domain::MatrixLike<mpilab::domain::ColumnMajorMatrix<>>);
-static_assert(mpilab::domain::MatrixLike<mpilab::domain::StridedRowMajorMatrix<>>);
-static_assert(mpilab::domain::MatrixLike<mpilab::domain::JaggedRowMajorMatrix<>>);
-static_assert(mpilab::domain::MatrixLike<mpilab::domain::BlockedRowMajorMatrix<>>);
-static_assert(mpilab::domain::MatrixLike<mpilab::domain::MortonMatrix<>>);
-static_assert(mpilab::domain::KernelLike<ReadKernel, CoordinateMatrix>);
-static_assert(!mpilab::domain::KernelLike<StatefulKernel, CoordinateMatrix>);
+    static_assert(mpilab::domain::MatrixLike<mpilab::domain::RowMajorMatrix<>>);
+    static_assert(mpilab::domain::MatrixLike<mpilab::domain::ColumnMajorMatrix<>>);
+    static_assert(mpilab::domain::MatrixLike<mpilab::domain::StridedRowMajorMatrix<>>);
+    static_assert(mpilab::domain::MatrixLike<mpilab::domain::JaggedRowMajorMatrix<>>);
+    static_assert(mpilab::domain::MatrixLike<mpilab::domain::BlockedRowMajorMatrix<>>);
+    static_assert(mpilab::domain::MatrixLike<mpilab::domain::MortonMatrix<>>);
+    static_assert(mpilab::domain::KernelLike<ReadKernel, CoordinateMatrix>);
+    static_assert(!mpilab::domain::KernelLike<StatefulKernel, CoordinateMatrix>);
 
 } // namespace
 
 /**
  * @brief 领域概念测试入口。 Domain concept test entry point.
  *
- * @return 中文：成功时返回 0。 English: Returns 0 on success.
+ * @return 成功时返回 0。 / Returns 0 on success.
  */
 int main()
 {
