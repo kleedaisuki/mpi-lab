@@ -1,6 +1,8 @@
 #pragma once
 
 #include "mpilab/domain/KernelLike.hpp"
+#include "mpilab/domain/kernel/AdvancedOneSidedJacobiSvd.hpp"
+#include "mpilab/domain/kernel/MpiFriendlyOneSidedJacobiSvd.hpp"
 #include "mpilab/domain/kernel/OneSidedJacobiSvd.hpp"
 
 /**

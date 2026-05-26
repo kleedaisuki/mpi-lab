@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <stdexcept>
 #include <type_traits>
+#include <vector>
 
 namespace
 {
@@ -150,6 +151,12 @@ namespace
     static_assert(std::is_empty_v<mpilab::domain::OneSidedJacobiSvd>);
     static_assert(std::is_default_constructible_v<mpilab::domain::OneSidedJacobiSvd>);
     static_assert(std::is_trivially_copyable_v<mpilab::domain::OneSidedJacobiSvd>);
+    static_assert(std::is_empty_v<mpilab::domain::AdvancedOneSidedJacobiSvd>);
+    static_assert(std::is_default_constructible_v<mpilab::domain::AdvancedOneSidedJacobiSvd>);
+    static_assert(std::is_trivially_copyable_v<mpilab::domain::AdvancedOneSidedJacobiSvd>);
+    static_assert(std::is_empty_v<mpilab::domain::MpiFriendlyOneSidedJacobiSvd>);
+    static_assert(std::is_default_constructible_v<mpilab::domain::MpiFriendlyOneSidedJacobiSvd>);
+    static_assert(std::is_trivially_copyable_v<mpilab::domain::MpiFriendlyOneSidedJacobiSvd>);
 
 } // namespace
 
@@ -164,6 +171,8 @@ int main()
      * @brief 被测无状态 SVD 算子。 / Stateless SVD kernel under test.
      */
     const mpilab::domain::OneSidedJacobiSvd svd;
+    const mpilab::domain::AdvancedOneSidedJacobiSvd advanced_svd;
+    const mpilab::domain::MpiFriendlyOneSidedJacobiSvd mpi_friendly_svd;
 
     /**
      * @brief 对角矩阵测试。 / Diagonal matrix test.
@@ -188,11 +197,23 @@ int main()
      */
     const auto full_rank = make_full_rank_matrix();
     const auto full_rank_result = svd(full_rank);
+    const auto advanced_full_rank_result = advanced_svd(full_rank);
+    const auto mpi_friendly_full_rank_result = mpi_friendly_svd(full_rank);
     assert(full_rank_result.converged);
+    assert(advanced_full_rank_result.converged);
+    assert(mpi_friendly_full_rank_result.converged);
     assert_singular_values_are_sorted(full_rank_result);
+    assert_singular_values_are_sorted(advanced_full_rank_result);
+    assert_singular_values_are_sorted(mpi_friendly_full_rank_result);
     assert_reconstructs(full_rank, full_rank_result);
+    assert_reconstructs(full_rank, advanced_full_rank_result);
+    assert_reconstructs(full_rank, mpi_friendly_full_rank_result);
     assert_right_vectors_are_orthogonal(full_rank_result);
+    assert_right_vectors_are_orthogonal(advanced_full_rank_result);
+    assert_right_vectors_are_orthogonal(mpi_friendly_full_rank_result);
     assert_nonzero_left_vectors_are_orthogonal(full_rank_result);
+    assert_nonzero_left_vectors_are_orthogonal(advanced_full_rank_result);
+    assert_nonzero_left_vectors_are_orthogonal(mpi_friendly_full_rank_result);
 
     /**
      * @brief 秩亏矩阵测试。 / Rank-deficient matrix test.
@@ -212,6 +233,33 @@ int main()
     assert_right_vectors_are_orthogonal(rank_deficient_result);
 
     /**
+     * @brief Round-robin phase 调度不变量测试。 / Round-robin phase scheduling invariant test.
+     */
+    const mpilab::domain::RoundRobinJacobiPairScheduler scheduler;
+    const std::vector<mpilab::domain::JacobiPairPhase> phases = scheduler(5);
+    std::vector<bool> seen_pairs(25, false);
+    std::size_t pair_count = 0;
+    assert(phases.size() == 5);
+    for (const mpilab::domain::JacobiPairPhase &phase : phases)
+    {
+        std::vector<bool> used_columns(5, false);
+        for (mpilab::domain::JacobiColumnPair pair : phase.pairs)
+        {
+            assert(pair.left < 5);
+            assert(pair.right < 5);
+            assert(pair.left < pair.right);
+            assert(!used_columns[pair.left]);
+            assert(!used_columns[pair.right]);
+            used_columns[pair.left] = true;
+            used_columns[pair.right] = true;
+            assert(!seen_pairs[(pair.left * 5) + pair.right]);
+            seen_pairs[(pair.left * 5) + pair.right] = true;
+            ++pair_count;
+        }
+    }
+    assert(pair_count == 10);
+
+    /**
      * @brief 宽矩阵前置条件测试。 / Wide-matrix precondition test.
      */
     mpilab::domain::RowMajorMatrix<double> wide(3, 2);
@@ -219,6 +267,30 @@ int main()
     try
     {
         static_cast<void>(svd(wide));
+    }
+    catch (const std::invalid_argument &)
+    {
+        rejected_wide_matrix = true;
+    }
+
+    assert(rejected_wide_matrix);
+
+    rejected_wide_matrix = false;
+    try
+    {
+        static_cast<void>(advanced_svd(wide));
+    }
+    catch (const std::invalid_argument &)
+    {
+        rejected_wide_matrix = true;
+    }
+
+    assert(rejected_wide_matrix);
+
+    rejected_wide_matrix = false;
+    try
+    {
+        static_cast<void>(mpi_friendly_svd(wide));
     }
     catch (const std::invalid_argument &)
     {
