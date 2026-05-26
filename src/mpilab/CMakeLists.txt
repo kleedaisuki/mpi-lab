@@ -5,6 +5,11 @@ set(MPILAB_PUBLIC_HEADERS
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/MatrixLike.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/kernel.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/matrix.hpp"
+    "${PROJECT_SOURCE_DIR}/include/mpilab/domain/matrix/AdvancedMatrix.hpp"
+    "${PROJECT_SOURCE_DIR}/include/mpilab/domain/matrix/DenseMatrix.hpp"
+    "${PROJECT_SOURCE_DIR}/include/mpilab/domain/matrix/NaiveMatrix.hpp"
+    "${PROJECT_SOURCE_DIR}/include/mpilab/domain/matrix/StridedMatrix.hpp"
+    "${PROJECT_SOURCE_DIR}/include/mpilab/domain/matrix/detail/MatrixMemory.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/infrastructure/file_stream.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/infrastructure/logger.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/infrastructure/mpi_runtime.hpp"
@@ -16,6 +21,7 @@ set(MPILAB_SOURCES
     infrastructure/logger.cpp
     application/pipeline.cpp
     application/mpi_scheduler.cpp
+    domain/matrix/layout_utils.cpp
 )
 
 add_library(mpilab ${MPILAB_SOURCES} ${MPILAB_PUBLIC_HEADERS})
