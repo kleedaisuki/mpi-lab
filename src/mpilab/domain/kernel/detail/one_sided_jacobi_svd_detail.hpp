@@ -35,6 +35,38 @@ namespace mpilab::domain::detail
     };
 
     /**
+     * @brief Jacobi 执行策略。 Jacobi execution strategy.
+     */
+    enum class JacobiExecutionStrategy
+    {
+        /**
+         * @brief 当前线程串行执行。 / Execute serially on the current thread.
+         */
+        serial,
+
+        /**
+         * @brief 使用 Pthreads 线程池执行可并行 phase。 / Execute parallel phases with the Pthreads thread pool.
+         */
+        pthreads
+    };
+
+    /**
+     * @brief Jacobi 数值内核策略。 Jacobi numeric-kernel strategy.
+     */
+    enum class JacobiComputeKernel
+    {
+        /**
+         * @brief 标量内核。 / Scalar kernel.
+         */
+        scalar,
+
+        /**
+         * @brief SIMD 内核，按平台能力回退。 / SIMD kernel with platform fallback.
+         */
+        simd
+    };
+
+    /**
      * @brief 运行单边 Jacobi SVD 共享实现。 Run the shared one-sided Jacobi SVD implementation.
      *
      * @param matrix 输入矩阵。 / Input matrix.
@@ -42,7 +74,12 @@ namespace mpilab::domain::detail
      * @param strategy sweep 策略。 / Sweep strategy.
      * @return SVD 结果。 / SVD result.
      */
-    [[nodiscard]] auto run_one_sided_jacobi_svd(const RowMajorMatrix<double>& matrix, const OneSidedJacobiSvdOptions& options, JacobiSweepStrategy strategy) -> OneSidedJacobiSvdResult;
+    [[nodiscard]] auto run_one_sided_jacobi_svd(
+        const RowMajorMatrix<double>& matrix,
+        const OneSidedJacobiSvdOptions& options,
+        JacobiSweepStrategy sweep_strategy,
+        JacobiExecutionStrategy execution_strategy = JacobiExecutionStrategy::serial,
+        JacobiComputeKernel compute_kernel = JacobiComputeKernel::scalar) -> OneSidedJacobiSvdResult;
 
     /**
      * @brief 生成 round-robin phase 调度。 Build a round-robin phase schedule.

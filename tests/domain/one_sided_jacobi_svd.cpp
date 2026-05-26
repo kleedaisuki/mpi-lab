@@ -157,6 +157,12 @@ namespace
     static_assert(std::is_empty_v<mpilab::domain::MpiFriendlyOneSidedJacobiSvd>);
     static_assert(std::is_default_constructible_v<mpilab::domain::MpiFriendlyOneSidedJacobiSvd>);
     static_assert(std::is_trivially_copyable_v<mpilab::domain::MpiFriendlyOneSidedJacobiSvd>);
+    static_assert(std::is_empty_v<mpilab::domain::PthreadsOneSidedJacobiSvd>);
+    static_assert(std::is_default_constructible_v<mpilab::domain::PthreadsOneSidedJacobiSvd>);
+    static_assert(std::is_trivially_copyable_v<mpilab::domain::PthreadsOneSidedJacobiSvd>);
+    static_assert(std::is_empty_v<mpilab::domain::SimdOneSidedJacobiSvd>);
+    static_assert(std::is_default_constructible_v<mpilab::domain::SimdOneSidedJacobiSvd>);
+    static_assert(std::is_trivially_copyable_v<mpilab::domain::SimdOneSidedJacobiSvd>);
 
 } // namespace
 
@@ -173,6 +179,8 @@ int main()
     const mpilab::domain::OneSidedJacobiSvd svd;
     const mpilab::domain::AdvancedOneSidedJacobiSvd advanced_svd;
     const mpilab::domain::MpiFriendlyOneSidedJacobiSvd mpi_friendly_svd;
+    const mpilab::domain::PthreadsOneSidedJacobiSvd pthreads_svd;
+    const mpilab::domain::SimdOneSidedJacobiSvd simd_svd;
 
     /**
      * @brief 对角矩阵测试。 / Diagonal matrix test.
@@ -199,21 +207,58 @@ int main()
     const auto full_rank_result = svd(full_rank);
     const auto advanced_full_rank_result = advanced_svd(full_rank);
     const auto mpi_friendly_full_rank_result = mpi_friendly_svd(full_rank);
+    const auto pthreads_full_rank_result = pthreads_svd(full_rank);
+    const auto simd_full_rank_result = simd_svd(full_rank);
     assert(full_rank_result.converged);
     assert(advanced_full_rank_result.converged);
     assert(mpi_friendly_full_rank_result.converged);
+    assert(pthreads_full_rank_result.converged);
+    assert(simd_full_rank_result.converged);
     assert_singular_values_are_sorted(full_rank_result);
     assert_singular_values_are_sorted(advanced_full_rank_result);
     assert_singular_values_are_sorted(mpi_friendly_full_rank_result);
+    assert_singular_values_are_sorted(pthreads_full_rank_result);
+    assert_singular_values_are_sorted(simd_full_rank_result);
     assert_reconstructs(full_rank, full_rank_result);
     assert_reconstructs(full_rank, advanced_full_rank_result);
     assert_reconstructs(full_rank, mpi_friendly_full_rank_result);
+    assert_reconstructs(full_rank, pthreads_full_rank_result);
+    assert_reconstructs(full_rank, simd_full_rank_result);
     assert_right_vectors_are_orthogonal(full_rank_result);
     assert_right_vectors_are_orthogonal(advanced_full_rank_result);
     assert_right_vectors_are_orthogonal(mpi_friendly_full_rank_result);
+    assert_right_vectors_are_orthogonal(pthreads_full_rank_result);
+    assert_right_vectors_are_orthogonal(simd_full_rank_result);
     assert_nonzero_left_vectors_are_orthogonal(full_rank_result);
     assert_nonzero_left_vectors_are_orthogonal(advanced_full_rank_result);
     assert_nonzero_left_vectors_are_orthogonal(mpi_friendly_full_rank_result);
+    assert_nonzero_left_vectors_are_orthogonal(pthreads_full_rank_result);
+    assert_nonzero_left_vectors_are_orthogonal(simd_full_rank_result);
+
+    /**
+     * @brief 多列矩阵测试，确保 Pthreads phase 并行路径被覆盖。 / Multi-column matrix test covering the Pthreads phase-parallel path.
+     */
+    mpilab::domain::RowMajorMatrix<double> multi_column(4, 5);
+    for (std::size_t y = 0; y < multi_column.height(); ++y)
+    {
+        for (std::size_t x = 0; x < multi_column.width(); ++x)
+        {
+            multi_column.set(x, y, static_cast<double>((3 * y) + (2 * x) + ((x + y) % 3)));
+        }
+    }
+
+    const auto pthreads_multi_result = pthreads_svd(multi_column);
+    const auto simd_multi_result = simd_svd(multi_column);
+    assert(pthreads_multi_result.converged);
+    assert(simd_multi_result.converged);
+    assert_singular_values_are_sorted(pthreads_multi_result);
+    assert_singular_values_are_sorted(simd_multi_result);
+    assert_reconstructs(multi_column, pthreads_multi_result);
+    assert_reconstructs(multi_column, simd_multi_result);
+    assert_right_vectors_are_orthogonal(pthreads_multi_result);
+    assert_right_vectors_are_orthogonal(simd_multi_result);
+    assert_nonzero_left_vectors_are_orthogonal(pthreads_multi_result);
+    assert_nonzero_left_vectors_are_orthogonal(simd_multi_result);
 
     /**
      * @brief 秩亏矩阵测试。 / Rank-deficient matrix test.
@@ -291,6 +336,30 @@ int main()
     try
     {
         static_cast<void>(mpi_friendly_svd(wide));
+    }
+    catch (const std::invalid_argument &)
+    {
+        rejected_wide_matrix = true;
+    }
+
+    assert(rejected_wide_matrix);
+
+    rejected_wide_matrix = false;
+    try
+    {
+        static_cast<void>(pthreads_svd(wide));
+    }
+    catch (const std::invalid_argument &)
+    {
+        rejected_wide_matrix = true;
+    }
+
+    assert(rejected_wide_matrix);
+
+    rejected_wide_matrix = false;
+    try
+    {
+        static_cast<void>(simd_svd(wide));
     }
     catch (const std::invalid_argument &)
     {
