@@ -50,6 +50,19 @@ mpilab_apply_common_target_options(mpilab_infrastructure_mpi_runtime_test)
 
 add_test(NAME mpilab.infrastructure.mpi_runtime COMMAND mpilab_infrastructure_mpi_runtime_test)
 
+add_executable(mpilab_application_pipeline_test
+    application_pipeline.cpp
+)
+
+target_link_libraries(mpilab_application_pipeline_test
+    PRIVATE
+        mpi_svd_lab::mpilab
+)
+
+mpilab_apply_common_target_options(mpilab_application_pipeline_test)
+
+add_test(NAME mpilab.application.pipeline COMMAND mpilab_application_pipeline_test)
+
 add_executable(mpilab_domain_concepts_test
     domain/concepts.cpp
 )
