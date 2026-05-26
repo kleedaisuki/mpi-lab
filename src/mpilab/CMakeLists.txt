@@ -1,6 +1,7 @@
 set(MPILAB_PUBLIC_HEADERS
     "${PROJECT_SOURCE_DIR}/include/mpilab/application/mpi_scheduler.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/application/pipeline.hpp"
+    "${PROJECT_SOURCE_DIR}/include/mpilab/presentation/cli.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/KernelLike.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/MatrixLike.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/kernel/AdvancedOneSidedJacobiSvd.hpp"
@@ -30,6 +31,7 @@ set(MPILAB_SOURCES
     infrastructure/thread_pool.cpp
     application/pipeline.cpp
     application/mpi_scheduler.cpp
+    presentation/cli.cpp
     domain/kernel/advanced_one_sided_jacobi_svd.cpp
     domain/kernel/detail/one_sided_jacobi_svd_detail.cpp
     domain/kernel/mpi_friendly_one_sided_jacobi_svd.cpp
@@ -78,11 +80,32 @@ else()
     target_compile_definitions(mpilab PUBLIC MPILAB_HAS_MPI=0)
 endif()
 
+add_executable(mpilab_cli
+    presentation/main.cpp
+)
+
+target_link_libraries(mpilab_cli
+    PRIVATE
+        mpi_svd_lab::mpilab
+)
+
+set_target_properties(mpilab_cli
+    PROPERTIES
+        OUTPUT_NAME mpilab
+)
+
+mpilab_apply_common_target_options(mpilab_cli)
+
 install(
     TARGETS mpilab
     EXPORT mpi_svd_labTargets
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+)
+
+install(
+    TARGETS mpilab_cli
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )
 

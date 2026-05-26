@@ -89,6 +89,19 @@ mpilab_apply_common_target_options(mpilab_application_pipeline_test)
 
 add_test(NAME mpilab.application.pipeline COMMAND mpilab_application_pipeline_test)
 
+add_executable(mpilab_presentation_cli_test
+    presentation/cli.cpp
+)
+
+target_link_libraries(mpilab_presentation_cli_test
+    PRIVATE
+        mpi_svd_lab::mpilab
+)
+
+mpilab_apply_common_target_options(mpilab_presentation_cli_test)
+
+add_test(NAME mpilab.presentation.cli COMMAND mpilab_presentation_cli_test)
+
 add_executable(mpilab_domain_concepts_test
     domain/concepts.cpp
 )
