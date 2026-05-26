@@ -4,6 +4,7 @@ set(MPILAB_PUBLIC_HEADERS
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/KernelLike.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/MatrixLike.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/kernel.hpp"
+    "${PROJECT_SOURCE_DIR}/include/mpilab/domain/kernel/OneSidedJacobiSvd.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/matrix.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/matrix/AdvancedMatrix.hpp"
     "${PROJECT_SOURCE_DIR}/include/mpilab/domain/matrix/DenseMatrix.hpp"
@@ -21,6 +22,7 @@ set(MPILAB_SOURCES
     infrastructure/logger.cpp
     application/pipeline.cpp
     application/mpi_scheduler.cpp
+    domain/kernel/one_sided_jacobi_svd.cpp
     domain/matrix/layout_utils.cpp
 )
 
