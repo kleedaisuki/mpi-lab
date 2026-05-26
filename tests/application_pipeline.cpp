@@ -7,6 +7,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <string>
 
 namespace
@@ -58,6 +59,7 @@ namespace
     {
         const std::filesystem::path input_path = temp_path("mpilab_pipeline_input.txt");
         const std::filesystem::path output_path = temp_path("mpilab_pipeline_output.txt");
+        const std::filesystem::path metrics_path = temp_path("mpilab_pipeline_metrics.jsonl");
         write_text(input_path, "3 0\n0 2\n\n1 0\n0 1\n");
 
         const bool mpi_was_initialized = mpilab::infrastructure::mpi_initialized();
@@ -65,6 +67,7 @@ namespace
         mpilab::application::PipelineConfig config;
         config.input_path = input_path;
         config.output_path = output_path;
+        config.metrics_path = metrics_path;
         config.layout = mpilab::application::MatrixLayout::column_major;
         config.kernel = mpilab::application::SvdKernel::advanced;
         config.enable_mpi = false;
@@ -72,6 +75,7 @@ namespace
         const mpilab::application::PipelineReport report = mpilab::application::run_pipeline(config);
         assert(report.samples_read == 2);
         assert(report.results_written == 2);
+        assert(report.metrics_written == 2);
         assert(!report.mpi_enabled);
         assert(report.rank.has_value());
         assert(report.rank.value() == 0);
@@ -95,8 +99,25 @@ namespace
         static_cast<void>(reader.next<mpilab::domain::RowMajorMatrix<double>>());
         assert(!reader.has_next());
 
+        std::ifstream metrics_input(metrics_path, std::ios::binary);
+        std::string first_record;
+        std::string second_record;
+        std::string extra_record;
+        assert(static_cast<bool>(std::getline(metrics_input, first_record)));
+        assert(static_cast<bool>(std::getline(metrics_input, second_record)));
+        assert(!static_cast<bool>(std::getline(metrics_input, extra_record)));
+        assert(first_record.find(R"("sample_index":0)") != std::string::npos);
+        assert(first_record.find(R"("layout":"column_major")") != std::string::npos);
+        assert(first_record.find(R"("kernel":"advanced")") != std::string::npos);
+        assert(first_record.find(R"("accuracy":)") != std::string::npos);
+        assert(first_record.find(R"("convergence":)") != std::string::npos);
+        assert(first_record.find(R"("root_mean_squared_error")") != std::string::npos);
+        assert(first_record.find(R"("max_column_correlation")") != std::string::npos);
+        assert(second_record.find(R"("sample_index":1)") != std::string::npos);
+
         std::filesystem::remove(input_path);
         std::filesystem::remove(output_path);
+        std::filesystem::remove(metrics_path);
     }
 
     /**
