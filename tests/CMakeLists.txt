@@ -24,6 +24,19 @@ mpilab_apply_common_target_options(mpilab_infrastructure_logger_test)
 
 add_test(NAME mpilab.infrastructure.logger COMMAND mpilab_infrastructure_logger_test)
 
+add_executable(mpilab_infrastructure_mpi_runtime_test
+    infrastructure/mpi_runtime.cpp
+)
+
+target_link_libraries(mpilab_infrastructure_mpi_runtime_test
+    PRIVATE
+        mpi_svd_lab::mpilab
+)
+
+mpilab_apply_common_target_options(mpilab_infrastructure_mpi_runtime_test)
+
+add_test(NAME mpilab.infrastructure.mpi_runtime COMMAND mpilab_infrastructure_mpi_runtime_test)
+
 add_executable(mpilab_domain_concepts_test
     domain/concepts.cpp
 )

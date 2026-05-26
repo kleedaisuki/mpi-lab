@@ -72,6 +72,8 @@ if(MPILAB_ENABLE_MPI)
         target_compile_definitions(mpilab PUBLIC MPILAB_HAS_MPI=0)
         message(STATUS "MPI CXX support was not found; building mpilab without MPI linkage.")
     endif()
+else()
+    target_compile_definitions(mpilab PUBLIC MPILAB_HAS_MPI=0)
 endif()
 
 install(
