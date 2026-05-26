@@ -4,17 +4,17 @@
 #include "mpilab/domain/kernel.hpp"
 #include "mpilab/domain/matrix.hpp"
 #include "mpilab/infrastructure/file_stream.hpp"
+#include "mpilab/infrastructure/logger.hpp"
 #include "mpilab/infrastructure/numerical_accuracy.hpp"
 #include "mpilab/infrastructure/svd_convergence.hpp"
 
 #include <cmath>
 #include <cstddef>
-#include <fstream>
 #include <iomanip>
 #include <ios>
 #include <limits>
-#include <memory>
 #include <ostream>
+#include <sstream>
 #include <stdexcept>
 #include <vector>
 
@@ -375,25 +375,25 @@ namespace mpilab::application
         }
 
         /**
-         * @brief 写出单个样本的 JSONL 指标记录。 Write one JSONL metric record for a sample.
+         * @brief 创建单个样本的 JSONL 指标记录。 Create one JSONL metric record for a sample.
          *
-         * @param output 输出流。 / Output stream.
          * @param sample_index 样本索引。 / Sample index.
          * @param sample 输入样本。 / Input sample.
          * @param config 流水线配置。 / Pipeline configuration.
          * @param result SVD 结果。 / SVD result.
+         * @return JSONL 记录文本。 / JSONL record text.
          */
-        void write_metric_record(
-            std::ostream &output,
+        [[nodiscard]] auto make_metric_record(
             std::size_t sample_index,
             const domain::RowMajorMatrix<double> &sample,
             const PipelineConfig &config,
-            const domain::OneSidedJacobiSvdResult &result)
+            const domain::OneSidedJacobiSvdResult &result) -> std::string
         {
             const domain::RowMajorMatrix<double> reconstructed = reconstruct_matrix(result, sample.width(), sample.height());
             const infrastructure::NumericalAccuracyMetrics accuracy = infrastructure::evaluate_numerical_accuracy(sample, reconstructed);
             const infrastructure::SvdConvergenceMetrics convergence = infrastructure::evaluate_svd_convergence(result, config.svd_options);
 
+            std::ostringstream output;
             output << "{\"sample_index\":" << sample_index << ",\"input\":{\"width\":" << sample.width() << ",\"height\":" << sample.height()
                    << "},\"config\":{\"layout\":\"" << to_string(config.layout) << "\",\"kernel\":\"" << to_string(config.kernel)
                    << "\",\"max_sweeps\":" << config.svd_options.max_sweeps << ',';
@@ -402,7 +402,8 @@ namespace mpilab::application
             write_accuracy_metrics(output, accuracy);
             output << ",\"convergence\":";
             write_convergence_metrics(output, convergence);
-            output << "}\n";
+            output << '}';
+            return output.str();
         }
     } // namespace
 
@@ -416,14 +417,12 @@ namespace mpilab::application
         report.size = mpi.size();
 
         std::vector<domain::RowMajorMatrix<double>> output;
-        std::unique_ptr<std::ofstream> metrics_output;
+        infrastructure::Logger metrics_logger("application.pipeline.metrics", infrastructure::LogLevel::jsonl, false);
+        bool metrics_enabled = false;
         if (mpi.writes_output() && config.metrics_path.has_value())
         {
-            metrics_output = std::make_unique<std::ofstream>(config.metrics_path.value(), std::ios::binary | std::ios::trunc);
-            if (!*metrics_output)
-            {
-                throw std::runtime_error("failed to open pipeline metrics JSONL file");
-            }
+            infrastructure::set_log_file(infrastructure::LogLevel::jsonl, config.metrics_path.value().string(), false);
+            metrics_enabled = true;
         }
 
         infrastructure::MatrixFileReader reader(config.input_path);
@@ -438,12 +437,18 @@ namespace mpilab::application
             {
                 append_result_matrices(result, output);
                 ++report.results_written;
-                if (metrics_output)
+                if (metrics_enabled)
                 {
-                    write_metric_record(*metrics_output, sample_index, sample, config, result);
+                    metrics_logger.log(infrastructure::LogLevel::jsonl, make_metric_record(sample_index, sample, config, result));
                     ++report.metrics_written;
                 }
             }
+        }
+
+        if (metrics_enabled)
+        {
+            infrastructure::flush_logs();
+            infrastructure::reset_log_output(infrastructure::LogLevel::jsonl);
         }
 
         if (mpi.writes_output())

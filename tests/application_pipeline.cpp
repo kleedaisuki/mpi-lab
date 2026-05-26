@@ -106,6 +106,8 @@ namespace
         assert(static_cast<bool>(std::getline(metrics_input, first_record)));
         assert(static_cast<bool>(std::getline(metrics_input, second_record)));
         assert(!static_cast<bool>(std::getline(metrics_input, extra_record)));
+        assert(!first_record.empty());
+        assert(first_record.front() == '{');
         assert(first_record.find(R"("sample_index":0)") != std::string::npos);
         assert(first_record.find(R"("layout":"column_major")") != std::string::npos);
         assert(first_record.find(R"("kernel":"advanced")") != std::string::npos);

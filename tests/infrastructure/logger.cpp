@@ -23,6 +23,7 @@ namespace
         mpilab::infrastructure::set_log_output(LogLevel::warning, output);
         mpilab::infrastructure::set_log_output(LogLevel::error, output);
         mpilab::infrastructure::set_log_output(LogLevel::critical, output);
+        mpilab::infrastructure::set_log_output(LogLevel::jsonl, output);
     }
 
     /**
@@ -93,6 +94,30 @@ namespace
         mpilab::infrastructure::reset_log_outputs();
     }
 
+    /**
+     * @brief 验证 logger 可输出无前缀 JSONL 记录。 Verify that the logger can emit prefix-free JSONL records.
+     */
+    void test_prefix_free_jsonl_level()
+    {
+        using mpilab::infrastructure::LogLevel;
+        using mpilab::infrastructure::Logger;
+
+        std::ostringstream output;
+        mpilab::infrastructure::set_log_output(LogLevel::jsonl, output);
+        mpilab::infrastructure::set_global_log_level(LogLevel::trace);
+
+        const Logger logger("metrics", LogLevel::jsonl, false);
+        logger.info("info dropped");
+        logger.log(LogLevel::jsonl, R"({"ok":true})");
+        mpilab::infrastructure::flush_logs();
+
+        assert(output.str() == R"({"ok":true})" "\n");
+        assert(!logger.include_prefix());
+        assert(logger.level() == LogLevel::jsonl);
+
+        mpilab::infrastructure::reset_log_outputs();
+    }
+
 } // namespace
 
 /**
@@ -104,5 +129,6 @@ int main()
 {
     test_filtering_formatting_and_routing();
     test_global_filter_applies_to_all_instances();
+    test_prefix_free_jsonl_level();
     return 0;
 }

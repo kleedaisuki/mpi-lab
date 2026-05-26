@@ -49,9 +49,14 @@ namespace mpilab::infrastructure
         critical = 5,
 
         /**
+         * @brief JSONL 结构化记录等级。 / JSONL structured-record level.
+         */
+        jsonl = 6,
+
+        /**
          * @brief 关闭日志。 / Disable logging.
          */
-        off = 6
+        off = 7
     };
 
     /**
@@ -84,6 +89,23 @@ namespace mpilab::infrastructure
          * @param level 实例最低输出等级。 / Instance minimum emitted level.
          */
         Logger(std::string name, LogLevel level);
+
+        /**
+         * @brief 使用模块名和前缀开关构造 logger。 Construct a logger with a module name and prefix toggle.
+         *
+         * @param name 模块名。 / Module name.
+         * @param include_prefix 是否输出时间戳、等级和模块名前缀。 / Whether to emit timestamp, level, and module-name prefixes.
+         */
+        Logger(std::string name, bool include_prefix);
+
+        /**
+         * @brief 使用模块名、实例过滤等级和前缀开关构造 logger。 Construct a logger with a module name, instance filter level, and prefix toggle.
+         *
+         * @param name 模块名。 / Module name.
+         * @param level 实例最低输出等级。 / Instance minimum emitted level.
+         * @param include_prefix 是否输出时间戳、等级和模块名前缀。 / Whether to emit timestamp, level, and module-name prefixes.
+         */
+        Logger(std::string name, LogLevel level, bool include_prefix);
 
         /**
          * @brief 复制构造 logger 前端。 Copy-construct a logger front end.
@@ -135,6 +157,20 @@ namespace mpilab::infrastructure
          * @return 实例最低输出等级。 / Instance minimum emitted level.
          */
         [[nodiscard]] auto level() const noexcept -> LogLevel;
+
+        /**
+         * @brief 设置是否输出日志前缀。 Set whether log prefixes are emitted.
+         *
+         * @param include_prefix 是否输出时间戳、等级和模块名前缀。 / Whether to emit timestamp, level, and module-name prefixes.
+         */
+        void set_include_prefix(bool include_prefix) noexcept;
+
+        /**
+         * @brief 返回是否输出日志前缀。 Return whether log prefixes are emitted.
+         *
+         * @return 启用前缀时返回 true。 / Returns true when prefixes are enabled.
+         */
+        [[nodiscard]] auto include_prefix() const noexcept -> bool;
 
         /**
          * @brief 写入指定等级日志。 Write a log message at the given level.
@@ -196,6 +232,11 @@ namespace mpilab::infrastructure
          * @brief 实例最低输出等级。 / Instance minimum emitted level.
          */
         std::atomic<LogLevel> level_{LogLevel::trace};
+
+        /**
+         * @brief 是否输出日志前缀。 / Whether to emit log prefixes.
+         */
+        std::atomic_bool include_prefix_{true};
     };
 
     /**
@@ -235,6 +276,22 @@ namespace mpilab::infrastructure
      * @param path 文件路径。 / File path.
      */
     void set_log_file(LogLevel level, const std::string& path);
+
+    /**
+     * @brief 将某个日志等级重定向到文件。 Redirect one log level to a file.
+     *
+     * @param level 日志等级。 / Log level.
+     * @param path 文件路径。 / File path.
+     * @param append 是否追加到已有文件。 / Whether to append to an existing file.
+     */
+    void set_log_file(LogLevel level, const std::string& path, bool append);
+
+    /**
+     * @brief 将某个日志等级输出路由恢复为默认流。 Restore one log level output routing to its default stream.
+     *
+     * @param level 日志等级。 / Log level.
+     */
+    void reset_log_output(LogLevel level);
 
     /**
      * @brief 将全局输出路由恢复为默认流。 Restore global output routing to default streams.

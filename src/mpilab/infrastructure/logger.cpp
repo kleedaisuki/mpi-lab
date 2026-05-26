@@ -30,7 +30,7 @@ namespace
     /**
      * @brief 可路由日志等级数量。 / Number of routable log levels.
      */
-    constexpr std::size_t routable_level_count = 6;
+    constexpr std::size_t routable_level_count = 7;
 
     /**
      * @brief 单条日志记录。 Single log record.
@@ -56,6 +56,11 @@ namespace
          * @brief 记录创建时间。 / Record creation time.
          */
         std::chrono::system_clock::time_point timestamp{};
+
+        /**
+         * @brief 是否输出前缀。 / Whether to emit a prefix.
+         */
+        bool include_prefix{true};
     };
 
     /**
@@ -153,8 +158,11 @@ namespace
     [[nodiscard]] auto format_record(const LogRecord& record) -> std::string
     {
         std::ostringstream output;
-        output << format_timestamp(record.timestamp) << " [" << to_string(record.level) << "] ["
-               << record.logger_name << "] " << record.message << '\n';
+        if (record.include_prefix) {
+            output << format_timestamp(record.timestamp) << " [" << to_string(record.level) << "] ["
+                   << record.logger_name << "] ";
+        }
+        output << record.message << '\n';
         return output.str();
     }
 
@@ -260,10 +268,12 @@ namespace
          *
          * @param level 日志等级。 / Log level.
          * @param path 文件路径。 / File path.
+         * @param append 是否追加到已有文件。 / Whether to append to an existing file.
          */
-        void set_file(LogLevel level, const std::string& path)
+        void set_file(LogLevel level, const std::string& path, bool append)
         {
-            auto file = std::make_shared<std::ofstream>(path, std::ios::out | std::ios::app);
+            const std::ios_base::openmode mode = append ? (std::ios::out | std::ios::app) : (std::ios::out | std::ios::trunc);
+            auto file = std::make_shared<std::ofstream>(path, mode);
             if (!file->is_open()) {
                 throw std::runtime_error("failed to open log file");
             }
@@ -281,6 +291,18 @@ namespace
             std::unique_lock<std::mutex> lock(mutex_);
             drain_locked(lock);
             outputs_ = default_outputs();
+        }
+
+        /**
+         * @brief 恢复单个等级的默认输出路由。 Restore default output routing for one level.
+         *
+         * @param level 日志等级。 / Log level.
+         */
+        void reset_output(LogLevel level)
+        {
+            std::unique_lock<std::mutex> lock(mutex_);
+            drain_locked(lock);
+            outputs_.at(level_index(level)) = default_outputs().at(level_index(level));
         }
 
         /**
@@ -310,6 +332,7 @@ namespace
                 OutputTarget{&std::cerr, nullptr},
                 OutputTarget{&std::cerr, nullptr},
                 OutputTarget{&std::cerr, nullptr},
+                OutputTarget{&std::clog, nullptr},
             };
         }
 
@@ -467,6 +490,8 @@ auto to_string(LogLevel level) -> std::string_view
         return "ERROR";
     case LogLevel::critical:
         return "CRITICAL";
+    case LogLevel::jsonl:
+        return "JSONL";
     case LogLevel::off:
         return "OFF";
     }
@@ -485,9 +510,23 @@ Logger::Logger(std::string name, LogLevel level)
 {
 }
 
+Logger::Logger(std::string name, bool include_prefix)
+    : name_(std::move(name))
+    , include_prefix_(include_prefix)
+{
+}
+
+Logger::Logger(std::string name, LogLevel level, bool include_prefix)
+    : name_(std::move(name))
+    , level_(level)
+    , include_prefix_(include_prefix)
+{
+}
+
 Logger::Logger(const Logger& other)
     : name_(other.name_)
     , level_(other.level_.load())
+    , include_prefix_(other.include_prefix_.load())
 {
 }
 
@@ -499,12 +538,14 @@ auto Logger::operator=(const Logger& other) -> Logger&
 
     name_ = other.name_;
     level_.store(other.level_.load());
+    include_prefix_.store(other.include_prefix_.load());
     return *this;
 }
 
 Logger::Logger(Logger&& other) noexcept
     : name_(std::move(other.name_))
     , level_(other.level_.load())
+    , include_prefix_(other.include_prefix_.load())
 {
 }
 
@@ -516,6 +557,7 @@ auto Logger::operator=(Logger&& other) noexcept -> Logger&
 
     name_ = std::move(other.name_);
     level_.store(other.level_.load());
+    include_prefix_.store(other.include_prefix_.load());
     return *this;
 }
 
@@ -534,6 +576,16 @@ auto Logger::level() const noexcept -> LogLevel
     return level_.load();
 }
 
+void Logger::set_include_prefix(bool include_prefix) noexcept
+{
+    include_prefix_.store(include_prefix);
+}
+
+auto Logger::include_prefix() const noexcept -> bool
+{
+    return include_prefix_.load();
+}
+
 void Logger::log(LogLevel level, std::string_view message) const
 {
     if (!passes_filter(level, level_.load()) || !passes_filter(level, global_log_level())) {
@@ -545,6 +597,7 @@ void Logger::log(LogLevel level, std::string_view message) const
         name_,
         std::string(message),
         std::chrono::system_clock::now(),
+        include_prefix_.load(),
     });
 }
 
@@ -598,15 +651,29 @@ void set_log_output_at_or_above(LogLevel minimum_level, std::ostream& output)
     if (minimum_level == LogLevel::off) {
         return;
     }
+    if (minimum_level == LogLevel::jsonl) {
+        backend().set_output(LogLevel::jsonl, output);
+        return;
+    }
 
-    for (std::size_t index = level_index(minimum_level); index < routable_level_count; ++index) {
+    for (std::size_t index = level_index(minimum_level); index <= level_index(LogLevel::critical); ++index) {
         backend().set_output(static_cast<LogLevel>(index), output);
     }
 }
 
 void set_log_file(LogLevel level, const std::string& path)
 {
-    backend().set_file(level, path);
+    backend().set_file(level, path, true);
+}
+
+void set_log_file(LogLevel level, const std::string& path, bool append)
+{
+    backend().set_file(level, path, append);
+}
+
+void reset_log_output(LogLevel level)
+{
+    backend().reset_output(level);
 }
 
 void reset_log_outputs()
