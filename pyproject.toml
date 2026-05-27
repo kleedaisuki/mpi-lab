@@ -27,6 +27,7 @@ dependencies = [
 
 [project.scripts]
 bench = "bench.main:main"
+matrixgen = "generator.main:main"
 
 [project.optional-dependencies]
 analysis = [
@@ -103,7 +104,7 @@ cmake.build-type = "Release"
 cmake.args = [
     "-DMPILAB_BUILD_TESTS=OFF",
 ]
-wheel.packages = ["src/bench"]
+wheel.packages = ["src/bench", "src/generator"]
 
 [tool.ruff]
 target-version = "py310"
@@ -154,7 +155,7 @@ markers = [
     "mpi: tests that require an MPI launcher or MPI runtime",
     "slow: long-running experiment or integration tests",
 ]
-testpaths = ["src"]
+testpaths = ["src", "tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
