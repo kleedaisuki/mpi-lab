@@ -27,12 +27,24 @@ Instance JSON shape:
 {
   "schema_version": 1,
   "name": "svd-baseline",
+  "samples": [
+    {
+      "name": "tall-normal",
+      "mode": "generate",
+      "arguments": ["--shape", "1024x128", "--distribution", "normal"]
+    },
+    {
+      "name": "structured-suite",
+      "mode": "suite",
+      "output": "experiments/samples/structured-suite.txt"
+    }
+  ],
   "jobs": [
     {
       "name": "naive-row-major",
       "build": "relwithdebinfo",
       "arguments": [
-        "--input", "experiments/data/tall.txt",
+        "--input", "{sample_tall_normal}",
         "--output", "{run_dir}/svd.txt",
         "--metrics", "{run_dir}/metrics.jsonl",
         "--layout", "row-major",
@@ -44,7 +56,8 @@ Instance JSON shape:
           "name": "perf-counters",
           "tool": "perf-stat",
           "repeat": 3,
-          "events": ["cycles", "instructions", "cache-misses"]
+          "events": ["cycles", "instructions", "cache-misses"],
+          "tool_arguments": ["--all-user"]
         }
       ]
     }
@@ -53,16 +66,35 @@ Instance JSON shape:
 
 Supported tools:
   native
+  gnu-time
+  hyperfine
   perf-stat
   perf-record
-  callgrind
-  cachegrind
+  valgrind-memcheck
+  valgrind-callgrind
+  valgrind-cachegrind
+  valgrind-massif
+  valgrind-dhat
+  heaptrack
+  strace
+  likwid-perfctr
+  mpip
+  scorep
+
+Samples:
+  samples live at instance level, outside jobs.
+  output defaults to experiments/samples/<sample-name>.txt.
+  reuse_existing defaults to true, so instances can share generated samples.
+  {sample_path} points to the first sample in the instance.
+  {sample_<name>} points to a named sample, with non-identifier chars as "_".
 
 Template variables:
   {repo_root}       repository root
   {instances_dir}  instance JSON directory
   {results_dir}    current timestamped result directory
   {instance_file}  current JSON file
+  {sample_path}    first instance sample path
+  {sample_<name>}  named instance sample path
   {instance}       slugified instance name
   {job}            slugified job name
   {build}          CMake preset name
@@ -93,9 +125,13 @@ bench 会解析对应可执行文件:
   stderr.txt
   tool artifacts
 
+Repeat aggregation is written to:
+  bench-summary.json
+  bench-report.json summaries
+
 perf-stat writes perf-stat.csv.
 perf-record writes perf.data.
-Callgrind/Cachegrind write their out files.
+tool_arguments is passed to the profiling wrapper.
 
 Examples:
   bench run

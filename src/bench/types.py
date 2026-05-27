@@ -10,13 +10,61 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 class ExperimentTool(str, Enum):
-    """@brief 实验工具类型。 / Experiment tool type."""
+    """@brief 实验运行工具类型。 / Experiment runner tool type."""
 
     NATIVE = "native"
+
+    GNU_TIME = "gnu-time"
+    HYPERFINE = "hyperfine"
+
     PERF_STAT = "perf-stat"
     PERF_RECORD = "perf-record"
-    CALLGRIND = "callgrind"
-    CACHEGRIND = "cachegrind"
+
+    VALGRIND_MEMCHECK = "valgrind-memcheck"
+    VALGRIND_CALLGRIND = "valgrind-callgrind"
+    VALGRIND_CACHEGRIND = "valgrind-cachegrind"
+    VALGRIND_MASSIF = "valgrind-massif"
+    VALGRIND_DHAT = "valgrind-dhat"
+
+    HEAPTRACK = "heaptrack"
+    STRACE = "strace"
+
+    LIKWID_PERFCTR = "likwid-perfctr"
+
+    MPIP = "mpip"
+    SCOREP = "scorep"
+
+
+class MatrixgenMode(str, Enum):
+    """@brief matrixgen 子命令类型。 / Matrixgen subcommand type."""
+
+    GENERATE = "generate"
+    SUITE = "suite"
+
+
+class SampleSpec(BaseModel):
+    """@brief instance 级矩阵样本声明。 / Instance-level matrix sample declaration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    mode: MatrixgenMode = MatrixgenMode.GENERATE
+    output: Path | None = None
+    arguments: list[str] = Field(default_factory=list)
+    reuse_existing: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def require_name(cls, value: str) -> str:
+        """@brief 验证样本名称非空。 / Validate that the sample name is non-empty.
+
+        @param value 样本名称。 / Sample name.
+        @return 去除首尾空白后的名称。 / Stripped name.
+        """
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("sample name must not be empty")
+        return stripped
 
 
 class MpiConfig(BaseModel):
@@ -51,6 +99,7 @@ class ExperimentSpec(BaseModel):
     tool: ExperimentTool = ExperimentTool.NATIVE
     repeat: int = Field(default=1, ge=1)
     events: list[str] = Field(default_factory=list)
+    tool_arguments: list[str] = Field(default_factory=list)
     arguments: list[str] = Field(default_factory=list)
     env: dict[str, str] = Field(default_factory=dict)
     timeout_seconds: float | None = Field(default=None, gt=0.0)
@@ -110,6 +159,7 @@ class ExperimentInstance(BaseModel):
 
     schema_version: Literal[1] = 1
     name: str | None = None
+    samples: list[SampleSpec] = Field(default_factory=list)
     jobs: list[BenchJob]
 
     @model_validator(mode="after")
