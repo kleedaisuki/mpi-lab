@@ -92,3 +92,14 @@ def test_run_dry_run_writes_report_and_commands(tmp_path: Path) -> None:
     assert {item["status"] for item in report["results"]} == {"dry-run"}
     assert all(item["stdout_path"] for item in report["results"])
     assert any("{run_dir}" not in " ".join(item["command"]) for item in report["results"])
+
+
+def test_help_documents_instance_contract() -> None:
+    """@brief 验证 help 描述实例契约。 / Verify help documents the instance contract."""
+    result = runner.invoke(app, ["--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "Instance JSON shape" in result.output
+    assert "Supported tools" in result.output
+    assert "Template variables" in result.output
+    assert "perf-stat" in result.output

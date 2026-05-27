@@ -12,13 +12,106 @@ from rich.table import Table
 
 from .runner import RunOptions, discover_instance_files, load_instance, run_bench
 
+HELP_TEXT = """MPI SVD 实验流水线。
+
+bench discovers JSON instance files under experiments/instances.
+Each instance owns one or more jobs.
+Jobs are the concurrent scheduling unit.
+Experiments inside the same job run sequentially.
+
+这种结构让互不相关的配置可以并发执行。
+同一个 job 的 perf.data/stdout/metrics 仍按顺序写入独立 run_dir。
+
+Instance JSON shape:
+{
+  "schema_version": 1,
+  "name": "svd-baseline",
+  "jobs": [
+    {
+      "name": "naive-row-major",
+      "build": "relwithdebinfo",
+      "arguments": [
+        "--input", "experiments/data/tall.txt",
+        "--output", "{run_dir}/svd.txt",
+        "--metrics", "{run_dir}/metrics.jsonl",
+        "--layout", "row-major",
+        "--kernel", "naive"
+      ],
+      "experiments": [
+        "native",
+        {
+          "name": "perf-counters",
+          "tool": "perf-stat",
+          "repeat": 3,
+          "events": ["cycles", "instructions", "cache-misses"]
+        }
+      ]
+    }
+  ]
+}
+
+Supported tools:
+  native
+  perf-stat
+  perf-record
+  callgrind
+  cachegrind
+
+Template variables:
+  {repo_root}       repository root
+  {instances_dir}  instance JSON directory
+  {results_dir}    current timestamped result directory
+  {instance_file}  current JSON file
+  {instance}       slugified instance name
+  {job}            slugified job name
+  {build}          CMake preset name
+  {tool}           profiling tool name
+  {experiment}     slugified experiment name
+  {repeat}         repeat index
+  {run_dir}        per-repeat result directory
+  {job_dir}        per-job result directory
+"""
+
+RUN_HELP = """发现并运行实验实例。
+
+默认会先对实例里声明的 build preset 执行:
+  cmake --preset <build>
+  cmake --build --preset <build>
+
+每次运行创建独立结果目录:
+  experiments/results/<run_id>/
+
+每个 experiment repeat 都有自己的:
+  stdout.txt
+  stderr.txt
+  tool artifacts
+
+perf-stat writes perf-stat.csv.
+perf-record writes perf.data.
+Callgrind/Cachegrind write their out files.
+
+Examples:
+  bench run
+  bench run --jobs 4
+  bench run --skip-build --dry-run
+  bench run -i experiments/instances -o experiments/results
+"""
+
+VALIDATE_HELP = """验证实例 JSON 文件。
+
+validate 只检查 JSON 是否能被 bench schema 接受。
+它会展示每个实例的 job 和 experiment 数量。
+它不会构建 CMake preset。
+它不会执行 mpilab、perf 或 Valgrind。
+
+Examples:
+  bench validate
+  bench validate -i experiments/instances
+"""
+
 app = typer.Typer(
     add_completion=False,
-    help="""MPI SVD 实验流水线。
-
-The runner discovers JSON instance files under experiments/instances by default.
-Each instance contains concurrent jobs; each job can run native, perf, and Valgrind experiments.
-""",
+    help=HELP_TEXT,
 )
 console = Console()
 
@@ -62,7 +155,7 @@ def display_path(path: Path, repo_root: Path) -> str:
         return str(path)
 
 
-@app.command(help="发现并运行 experiments/instances 下的实验实例。 / Discover and run experiment instances.")
+@app.command(help=RUN_HELP)
 def run(
     instances: Annotated[
         Path,
@@ -111,7 +204,7 @@ def run(
         raise typer.Exit(code=1)
 
 
-@app.command(help="验证实例 JSON 文件。 / Validate instance JSON files.")
+@app.command(help=VALIDATE_HELP)
 def validate(
     instances: Annotated[
         Path,
