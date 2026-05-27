@@ -30,11 +30,37 @@ Examples:
   matrixgen suite -o experiments/instances/default-suite.txt --manifest suite.json
 """
 
+DISTRIBUTION_TEXT = (
+    "Distributions: uniform, normal, lognormal, integer, rademacher, sparse, "
+    "low-rank, ill-conditioned, diagonal, banded, hilbert, identity, cauchy, zero."
+)
+
+GENERATE_HELP_TEXT = """生成自定义矩阵样本。
+
+重复 --shape 和 --distribution 会生成二者的笛卡尔积。默认生成一个 64x64 normal 矩阵。
+默认 text 输出可直接作为 mpilab --input 输入。
+
+Examples:
+  matrixgen generate -o tall.txt -s 1024x128 -d normal
+  matrixgen generate -o sparse.txt -s 512x512 -d sparse --density 0.01 --seed 7
+  matrixgen generate -o bundle.npz -s 128x32 -s 32x128 -d normal -d low-rank -f npz
+"""
+
+SUITE_HELP_TEXT = """生成默认综合实验套件。
+
+套件覆盖小型/方阵/高矩阵/宽矩阵/非 2 次幂 shape，以及 dense、sparse、low-rank、
+ill-conditioned、banded、Hilbert、Rademacher 等负载。
+
+Examples:
+  matrixgen suite -o experiments/instances/default-suite.txt
+  matrixgen suite -o suite.npz -f npz --manifest suite.json
+"""
+
 app = typer.Typer(
     add_completion=False,
     help=HELP_TEXT,
-    epilog="Distributions: uniform, normal, lognormal, integer, rademacher, sparse, "
-    "low-rank, ill-conditioned, diagonal, banded, hilbert, identity, cauchy, zero.",
+    epilog=DISTRIBUTION_TEXT,
+    no_args_is_help=True,
 )
 console = Console()
 
@@ -65,12 +91,35 @@ def render_summary(specs: list[MatrixSpec], output: Path, output_format: OutputF
     console.print(f"[green]wrote[/green] {len(specs)} matrix sample(s) to {output} as {output_format.value}")
 
 
-@app.command(
-    help="""生成自定义矩阵样本。
+@app.command("help")
+def help_command(
+    command: Annotated[
+        str | None,
+        typer.Argument(help="可选命令名：generate 或 suite。 / Optional command name: generate or suite."),
+    ] = None,
+) -> None:
+    """显示矩阵生成器帮助。 / Show matrix generator help."""
+    if command is None:
+        console.print(HELP_TEXT.strip())
+        console.print()
+        console.print("Commands:")
+        console.print("  generate  生成自定义矩阵样本。")
+        console.print("  suite     生成默认综合实验套件。")
+        console.print("  help      显示帮助。")
+        console.print()
+        console.print(DISTRIBUTION_TEXT)
+        return
+    if command == "generate":
+        console.print(GENERATE_HELP_TEXT.strip())
+        return
+    if command == "suite":
+        console.print(SUITE_HELP_TEXT.strip())
+        return
+    raise typer.BadParameter("command must be one of: generate, suite")
 
-重复 --shape 和 --distribution 会生成二者的笛卡尔积。默认生成一个 64x64 normal 矩阵。
-The output defaults to text so it can be consumed directly by mpilab --input.
-""",
+
+@app.command(
+    help=GENERATE_HELP_TEXT,
 )
 def generate(
     output: Annotated[
@@ -165,11 +214,7 @@ def generate(
 
 
 @app.command(
-    help="""生成默认综合实验套件。
-
-套件覆盖小型/方阵/高矩阵/宽矩阵/非 2 次幂 shape，以及 dense、sparse、low-rank、
-ill-conditioned、banded、Hilbert、Rademacher 等负载。
-""",
+    help=SUITE_HELP_TEXT,
 )
 def suite(
     output: Annotated[

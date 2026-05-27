@@ -68,3 +68,12 @@ def test_help_describes_formats_and_examples() -> None:
     assert "MatrixFileReader" in result.output
     assert "Examples" in result.output
     assert "Distributions" in result.output
+
+
+def test_help_command_describes_generate() -> None:
+    """@brief 验证 help 子命令可显示命令说明。 / Verify the help subcommand describes a command."""
+    result = runner.invoke(app, ["help", "generate"])
+
+    assert result.exit_code == 0, result.output
+    assert "generate" in result.output
+    assert "--density" in result.output
