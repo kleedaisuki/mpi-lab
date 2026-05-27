@@ -533,7 +533,17 @@ def build_dhat_tool(
     context: dict[str, str],
 ) -> ToolCommand:
     """@brief 构造 DHAT 命令。 / Build a DHAT command."""
-    return build_valgrind_tool(base_command, experiment, run_dir, context, "dhat", "dhat", "--log-file")
+    out_path = run_dir / "dhat.json"
+    log_path = run_dir / "dhat.log"
+    command = [
+        "valgrind",
+        "--tool=dhat",
+        f"--dhat-out-file={out_path}",
+        f"--log-file={log_path}",
+        *expanded_tool_arguments(experiment, context),
+        *base_command,
+    ]
+    return command, {"dhat": str(out_path), "dhat_log": str(log_path)}, "valgrind"
 
 
 def build_heaptrack_tool(
@@ -543,8 +553,9 @@ def build_heaptrack_tool(
     context: dict[str, str],
 ) -> ToolCommand:
     """@brief 构造 heaptrack 命令。 / Build a heaptrack command."""
-    out_path = run_dir / "heaptrack.gz"
-    command = ["heaptrack", "-o", str(out_path), *expanded_tool_arguments(experiment, context), *base_command]
+    output_prefix = run_dir / "heaptrack"
+    out_path = output_prefix.with_suffix(".gz")
+    command = ["heaptrack", "-o", str(output_prefix), *expanded_tool_arguments(experiment, context), *base_command]
     return command, {"heaptrack": str(out_path)}, "heaptrack"
 
 
@@ -580,8 +591,47 @@ def build_mpip_tool(
 ) -> ToolCommand:
     """@brief 构造 mpiP 命令。 / Build an mpiP command."""
     out_dir = run_dir / "mpip"
-    command = ["mpip", *expanded_tool_arguments(experiment, context), *base_command]
-    return command, {"mpip": str(out_dir)}, "mpip"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mpip_home_text = os.environ.get("MPIP_HOME")
+    candidate_homes = [
+        Path(mpip_home_text).expanduser() if mpip_home_text else None,
+        Path.home() / "opt" / "mpiP",
+        Path("/usr/local"),
+        Path("/usr"),
+    ]
+    mpip_library = next(
+        (
+            candidate / "lib" / "libmpiP.so"
+            for candidate in candidate_homes
+            if candidate is not None and (candidate / "lib" / "libmpiP.so").exists()
+        ),
+        None,
+    )
+    if mpip_library is None:
+        return ["mpip", *expanded_tool_arguments(experiment, context), *base_command], {"mpip": str(out_dir)}, "mpip"
+
+    mpip_flags = f"-f {out_dir} -k 2 -y -p"
+    command = base_command.copy()
+    launcher = Path(command[0]).name if command else ""
+    if launcher in {"mpirun", "mpiexec"}:
+        command = [
+            command[0],
+            "-x",
+            f"LD_PRELOAD={mpip_library}",
+            "-x",
+            f"MPIP={mpip_flags}",
+            *expanded_tool_arguments(experiment, context),
+            *command[1:],
+        ]
+    else:
+        command = [
+            "env",
+            f"LD_PRELOAD={mpip_library}",
+            f"MPIP={mpip_flags}",
+            *expanded_tool_arguments(experiment, context),
+            *command,
+        ]
+    return command, {"mpip": str(out_dir)}, None
 
 
 def build_scorep_tool(
