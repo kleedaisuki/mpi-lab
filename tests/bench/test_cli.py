@@ -25,9 +25,8 @@ def write_instance(path: Path) -> None:
                 "name": "unit-suite",
                 "jobs": [
                     {
-                        "name": "echo-native",
+                        "name": "row-major-native",
                         "build": "relwithdebinfo",
-                        "executable": "/bin/echo",
                         "arguments": ["--input", "{instance_file}", "--output", "{run_dir}/out.txt"],
                         "experiments": [
                             {
@@ -39,8 +38,7 @@ def write_instance(path: Path) -> None:
                         ],
                     },
                     {
-                        "name": "echo-shortcut",
-                        "executable": "/bin/echo",
+                        "name": "default-build-shortcut",
                         "experiments": ["native"],
                     },
                 ],
@@ -103,3 +101,30 @@ def test_help_documents_instance_contract() -> None:
     assert "Supported tools" in result.output
     assert "Template variables" in result.output
     assert "perf-stat" in result.output
+
+
+def test_rejects_user_supplied_executable(tmp_path: Path) -> None:
+    """@brief 验证用户不能配置 executable。 / Verify users cannot configure executable."""
+    instances_dir = tmp_path / "instances"
+    path = instances_dir / "bad.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "jobs": [
+                    {
+                        "name": "leaky-build-layout",
+                        "build": "relwithdebinfo",
+                        "executable": "/bin/echo",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["validate", "--instances", str(instances_dir)])
+
+    assert result.exit_code != 0
+    assert "executable" in result.output

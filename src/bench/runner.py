@@ -129,16 +129,14 @@ def load_instance(path: Path) -> ExperimentInstance:
         raise ValueError(f"{path}: invalid instance schema: {error}") from error
 
 
-def resolve_executable(repo_root: Path, job: BenchJob) -> Path:
-    """@brief 解析 job 使用的可执行文件路径。 / Resolve the executable path for a job.
+def executable_path_for_build(repo_root: Path, build_name: str) -> Path:
+    """@brief 返回构建 preset 对应的 mpilab 路径。 / Return the mpilab path for a build preset.
 
     @param repo_root 仓库根目录。 / Repository root.
-    @param job benchmark job。 / Benchmark job.
+    @param build_name CMake 构建 preset 名称。 / CMake build preset name.
     @return 可执行文件路径。 / Executable path.
     """
-    if job.executable is not None:
-        return (repo_root / job.executable).resolve() if not job.executable.is_absolute() else job.executable
-    return (repo_root / "build" / job.build / "src" / "mpilab" / "mpilab").resolve()
+    return (repo_root / "build" / build_name / "src" / "mpilab" / "mpilab").resolve()
 
 
 def expand_text(text: str, context: dict[str, str]) -> str:
@@ -175,7 +173,7 @@ def build_base_command(
     @param context 模板上下文。 / Template context.
     @return 基础命令。 / Base command.
     """
-    executable = resolve_executable(repo_root, job)
+    executable = executable_path_for_build(repo_root, job.build)
     arguments = expand_arguments(job.arguments, context) + expand_arguments(experiment.arguments, context)
     mpi = job.config.mpi
     if mpi is not None and mpi.enable_flag and "--mpi" not in arguments:
@@ -390,14 +388,17 @@ def run_job(
     return results
 
 
-def build_presets(repo_root: Path, build_names: list[str], dry_run: bool) -> None:
-    """@brief 配置并构建 CMake preset。 / Configure and build CMake presets.
+def ensure_build_presets(repo_root: Path, build_names: list[str], dry_run: bool) -> None:
+    """@brief 确保 CMake preset 已构建。 / Ensure CMake presets have been built.
 
     @param repo_root 仓库根目录。 / Repository root.
     @param build_names 构建 preset 名称。 / Build preset names.
     @param dry_run 是否只预演。 / Whether this is a dry run.
     """
     for build_name in build_names:
+        executable = executable_path_for_build(repo_root, build_name)
+        if executable.exists():
+            continue
         commands = [
             ["cmake", "--preset", build_name],
             ["cmake", "--build", "--preset", build_name],
@@ -432,7 +433,7 @@ def run_bench(options: RunOptions) -> BenchReport:
     instances = [(path, load_instance(path)) for path in instance_files]
     build_names = sorted({job.build for _, instance in instances for job in instance.jobs})
     if options.build and build_names:
-        build_presets(options.repo_root, build_names, options.dry_run)
+        ensure_build_presets(options.repo_root, build_names, options.dry_run)
 
     futures: list[Future[list[ExperimentResult]]] = []
     results: list[ExperimentResult] = []

@@ -18,6 +18,7 @@ bench discovers JSON instance files under experiments/instances.
 Each instance owns one or more jobs.
 Jobs are the concurrent scheduling unit.
 Experiments inside the same job run sequentially.
+Users select a build preset; bench resolves the executable internally.
 
 这种结构让互不相关的配置可以并发执行。
 同一个 job 的 perf.data/stdout/metrics 仍按顺序写入独立 run_dir。
@@ -74,9 +75,15 @@ Template variables:
 
 RUN_HELP = """发现并运行实验实例。
 
-默认会先对实例里声明的 build preset 执行:
+每个 job 只声明 build preset, 例如 relwithdebinfo、release、asan。
+bench 会解析对应可执行文件:
+  build/<build>/src/mpilab/mpilab
+
+如果该可执行文件不存在, 默认会执行:
   cmake --preset <build>
   cmake --build --preset <build>
+
+使用 --skip-build 可以关闭这个自动构建步骤。
 
 每次运行创建独立结果目录:
   experiments/results/<run_id>/

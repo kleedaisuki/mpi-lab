@@ -75,7 +75,6 @@ class BenchJob(BaseModel):
 
     name: str
     build: str = "relwithdebinfo"
-    executable: Path | None = None
     arguments: list[str] = Field(default_factory=list)
     experiments: list[ExperimentSpec] = Field(default_factory=lambda: [ExperimentSpec()])
     config: JobConfig = Field(default_factory=JobConfig)
